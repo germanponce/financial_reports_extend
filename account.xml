@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+<data>
+
+
+    <record id="account_financial_report_extend_form_2_col" model="ir.ui.view">
+        <field name="name">account.financial.report</field>
+        <field name="model">account.financial.report</field>
+        <field name="inherit_id" ref="account.view_account_financial_report_form" />
+        <field name="arch" type="xml">
+            <field name="style_overwrite" position="after">
+                <field name="special_output_report" />
+                <!-- <field name="estado_resultados_extended" /> -->
+            </field>
+        </field>
+    </record>
+
+</data>
+
+</odoo>

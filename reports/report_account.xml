@@ -1,0 +1,190 @@
+<?xml version="1.0" encoding="utf-8"?>
+<openerp>
+  <data>
+
+    <template id="mro_report_barcodes">
+      <t t-call="web.basic_layout">
+      <t t-set="o" t-value="o.with_context({'lang':o.user_id.partner_id.lang})"/>
+        <div class="page">
+          <div class="row">
+            <div class="col-xs-4">
+              <img t-if="o.company_id.logo" t-att-src="'data:image/png;base64,%s' % to_text(o.company_id.logo)" style="max-height: 90px;height: auto;"/>
+            </div>
+            <div class="col-xs-5 text-center">
+                <strong>
+                    <span t-field="o.company_id.partner_id.name"  style="font-size:16px;"/><BR/>                                
+                </strong>
+                <span t-if="o.company_id.partner_id.vat"><span t-field="o.company_id.partner_id.vat"/></span>
+                <BR />
+                   <span t-field="o.company_id.partner_id.street"/>
+                    <BR t-if="o.company_id.partner_id.street2" />
+                    <span t-if="o.company_id.partner_id.street2"> <span t-field="o.company_id.partner_id.street2"/></span>
+                    <BR />
+                    <span t-if="o.company_id.partner_id.city"> <span t-field="o.company_id.partner_id.city"/></span>
+                    <BR t-if="o.company_id.partner_id.state_id"/>
+                    <span t-if="o.company_id.partner_id.state_id">
+                        <span t-field="o.company_id.partner_id.state_id.name"/>,
+                    </span>
+                    <span t-if="o.company_id.partner_id.country_id">
+                        <span t-field="o.company_id.partner_id.country_id.name"/>
+                    </span>
+                    <BR/>
+                    <span t-if="o.company_id.partner_id.zip">
+                        CP: <span t-field="o.company_id.partner_id.zip"/>
+                    </span>
+                        
+            </div>
+
+          </div>
+          <div class="text-left">
+            <strong>
+               <span t-field="o.partner_id.name"  style="font-size:16px;"/><BR/>                                
+              </strong>
+              <BR />
+                 <span t-field="o.partner_id.street"/>
+                  <span t-if="o.partner_id.street2">, <span t-field="o.partner_id.street2"/></span>
+                  <BR />
+                  <span t-if="o.partner_id.city"> <span t-field="o.partner_id.city"/>, </span>
+                  <span t-if="o.partner_id.state_id">
+                      <span t-field="o.partner_id.state_id.name"/>
+                  </span>
+                  <span t-if="o.partner_id.country_id">
+                    , <span t-field="o.partner_id.country_id.name"/>
+                  </span>
+                  <BR/>
+                  <span t-if="o.partner_id.zip">
+                      CP: <span t-field="o.partner_id.zip"/>
+                  </span>
+              <BR t-if="o.partner_id.vat" />
+              <span t-if="o.partner_id.vat">RFC: <span t-field="o.partner_id.vat"/></span>
+                        
+            </div>
+            <div class="text-left">
+              <BR />
+              
+                 <span> <strong> Descripción: </strong><span t-esc="o.product_id.name"></span></span> 
+                <table style="border-spacing:0;margin-bottom:0;height:122px;" class="table">
+                  <tbody>
+                      <tr style="width: 1in;">
+                        <td style="text-align: left; vertical-align: middle;" class="col-xs-5">
+                              <span><strong>Item / Parte: </strong></span>
+                          </td>
+                          <td style="text-align: center; vertical-align: middle;" class="col-xs-5">
+                              <img t-if="o.product_id.default_code" t-att-src="'/report/barcode/Code128/%s' % o.product_id.default_code" style="width:100%;height:20%;"/>
+                              <!-- <img t-if="o.product_id.barcode" t-att-src="'/report/barcode/?type=%s&amp;value=%s&amp;width=%s&amp;height=%s' % ('Code128', o.product_id.default_code, 600, 150)" style="width:100%;height:20%;"/> -->
+                              <span t-field="o.product_id.default_code"/>
+                          </td>
+                      </tr>
+                      <tr style="width: 1in;">
+                        <td style="text-align: left; vertical-align: middle;" class="col-xs-5">
+                              <span><strong>Qty / Cantidad: </strong></span>
+                          </td>
+                          <td style="text-align: center; vertical-align: middle;" class="col-xs-5">
+                               <img t-if="o.product_qty" t-att-src="'/report/barcode/Code128/%s' % str(o.product_qty)" style="width:100%;height:20%;"/>
+                              <span t-field="o.product_qty"/>
+                          </td>
+                      </tr>
+                      <tr style="width: 1in;">
+                        <td style="text-align: left; vertical-align: middle;" class="col-xs-5">
+                              <span><strong>Folio Calidad: </strong></span>
+                          </td>
+                          <td style="text-align: center; vertical-align: middle;" class="col-xs-5">
+                              <img t-if="o.name" t-att-src="'/report/barcode/Code128/%s' % o.name" style="width:100%;height:20%;"/>
+                              <span t-field="o.name"/>
+                          </td>
+                      </tr>
+                      <tr style="width: 1in;" t-if="o.get_lot_name()">
+                        <td style="text-align: left; vertical-align: middle;" class="col-xs-5">
+                              <span><strong>Lote: </strong></span>
+                          </td>
+                          <td style="text-align: center; vertical-align: middle;" class="col-xs-5">
+                              <img t-if="o.get_lot_name()" t-att-src="'/report/barcode/Code128/%s' % o.get_lot_name()" style="width:100%;height:20%;"/>
+                              <span t-esc="o.get_lot_name()"/>
+                          </td>
+                      </tr>
+                      <tr style="width: 1in;" t-if="o.order_reference">
+                        <td style="text-align: left; vertical-align: middle;" class="col-xs-5">
+                              <span><strong>PO / Orden de Compra: </strong></span>
+                          </td>
+                          <td style="text-align: center; vertical-align: middle;" class="col-xs-5">
+                              <img t-if="o.order_reference" t-att-src="'/report/barcode/Code128/%s' % o.order_reference" style="width:100%;height:20%;"/>
+                              <span t-esc="o.order_reference"/>
+                          </td>
+                      </tr>
+                  </tbody>
+            </table>
+            <span> <strong> PESO: </strong><span t-field="o.product_weight_total"> </span> KG</span>
+            <br /> 
+            <span> <strong> Revision Corte: </strong><span t-field="o.revision_cut"></span></span> 
+            <br /> 
+            <span> <strong> Revision Familia: </strong><span t-field="o.revision_family"></span></span>             <br /> 
+            <span> <strong> Fecha Envio: </strong><span t-field="o.send_date" t-options='{"format": "dd/MM/yyyy"}'></span></span> 
+
+            </div>
+          </div>
+      </t>
+    </template>
+
+    <!-- <template id="report_invoice">
+            <t t-call="web.html_container">
+                <t t-foreach="docs" t-as="o">
+                    <t t-call="account.report_invoice_document" t-lang="o.partner_id.lang"/>
+                </t>
+            </t>
+        </template> -->
+
+    <template id="mro_barcodes_report_style_01">
+      <t t-call="web.html_container">
+          <t t-set="data_report_margin_top" t-value="20"/> 
+          <t t-set="data_report_header_spacing" t-value="10"/>
+          <t t-set="data_report_dpi" t-value="600"/>
+          <t t-foreach="docs" t-as="o">
+              <t t-call="mro_report_cordpag.mro_report_barcodes" t-lang="o.user_id.partner_id.lang"/>
+          </t>
+      </t>
+    </template>
+
+  </data>
+
+  <data>
+    <record id="invoice_paperformat_style_01" model="report.paperformat">
+            <!-- <field name="page_height">0</field>
+            <field name="page_width">0</field> -->
+            <field name="header_spacing">35</field>
+            <field name="margin_top">10</field>
+            <field name="margin_right">7</field>
+            <field name="margin_bottom">10</field>
+            <field name="margin_left">7</field>
+            <field name="header_line" eval="False"/>
+            <field name="name">US Letter MRO - Barcodes</field>
+            <field name="orientation">Portrait</field>
+            <field name="dpi">90</field>
+            <field name="default" eval="True"/>
+            <!-- <field name="format">Letter</field> -->
+            <field name="format">custom</field>
+            <field name="page_height">180</field>
+            <field name="page_width">140</field>
+
+        </record>
+
+
+        <report 
+            id="report_barcode_for_mro"
+            model="mrp.production"
+            string="Etiqueta Informativa"
+            report_type="qweb-pdf"
+            name="mro_report_cordpag.mro_barcodes_report_style_01"
+            file="mro_report_cordpag.mro_barcodes_report_style_01"
+            attachment_use="True"
+            attachment="((object.state in ('confirmed','progress','done') and ('Etiquet_Informativa_'+object.product_id.default_code + '_' + (object.name or '')) or '')  +'.pdf')"
+        />
+
+        <record id="report_barcode_for_mro" model="ir.actions.report">
+          <field name="paperformat_id" ref="mro_report_cordpag.invoice_paperformat_style_01" />
+          <field name="print_report_name">'Etiquet_Informativa_'+object.name+'.pdf'</field>
+
+        </record>
+
+
+  </data>
+</openerp>
