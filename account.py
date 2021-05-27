@@ -76,7 +76,6 @@ class AccountingReport(models.TransientModel):
     _inherit = "account.common.report"
     _description = "Accounting Report"
 
-
     def b64str_to_tempfile(self, b64_str=None, file_suffix=None, file_prefix=None):
         """
         @param b64_str : Text in Base_64 format for add in the file
@@ -129,7 +128,7 @@ class AccountingReport(models.TransientModel):
             return self.print_excel_report_balance_general()
         elif self.account_report_id.special_output_report == 'estado_resultados_extended':
             return self.print_excel_report_estado_resultados()
-            
+
     @api.multi
     def print_excel_report_balance_general(self):
         ################ DATA REPORT #################
@@ -312,14 +311,18 @@ class AccountingReport(models.TransientModel):
 
         sheet.merge_range('G3:H3',self.env.user.company_id.name,format_bold_border2)
         sheet.merge_range('G4:H4',self.env.user.company_id.vat,format_bold_border2)
-        if self.date_to and self.date_from:
+        
+        fecha_creacion = convert_date_to_MX(str(fields.Date.today()))
+        if self.date_from:
             sheet.write('F7','PERIODO:',format_bold_border_tit_gray)
             date_from_c = convert_date_to_MX(str(date_from))
-            date_to_c = convert_date_to_MX(str(date_to))
+            if not self.date_to:
+                date_to_c = fecha_creacion
+            else:
+                date_to_c = convert_date_to_MX(str(date_to))
             sheet.merge_range('G7:H7', date_from_c+' A '+date_to_c, format_bold_border2)
         # # sheet.merge_range('G4:H4',format_bold_border2)
 
-        fecha_creacion = convert_date_to_MX(str(fields.Date.today()))
         sheet.merge_range('G5:H5',fecha_creacion,format_bold_border2)
         target_move = ""
         if data['form']['target_move'] == 'all':
@@ -474,7 +477,215 @@ class AccountingReport(models.TransientModel):
                 'target': 'new'
                 }
 
-    
+
+    def get_account_lines(self, data):
+        print ("########### get_account_lines >>>>>>>>>>>>> ")
+        lines = []
+        date_to = self.date_to
+        date_from = self.date_from
+        print (":::::: date_to >>>>>>> ", date_to)
+        print (":::::: date_from >>>>>>> ", date_from)
+        # print ("\n\n\n======data['account_report_id'][0]",data['account_report_id'][0])
+        account_report = self.env['account.financial.report'].search([('id', '=', data['account_report_id'][0])])
+        child_reports = account_report._get_children_by_order()
+        print ("### data.get('used_context') >>>>> ",data.get('used_context'))
+        res = self.with_context(data.get('used_context'))._compute_report_balance(child_reports)
+        print ("### RES >>>>>>>>>> ", res)
+        if data['enable_filter']:
+            comparison_res = self.with_context(data.get('comparison_context'))._compute_report_balance(child_reports)
+            for report_id, value in comparison_res.items():
+                res[report_id]['comp_bal'] = value['balance']
+                report_acc = res[report_id].get('account')
+                if report_acc:
+                    for account_id, val in comparison_res[report_id].get('account').items():
+                        report_acc[account_id]['comp_bal'] = val['balance']
+        for report in child_reports:
+            print (":::::: report >>>>>>> ", report)
+            print (":::::: name >>>>>>> ", report.name)
+            print (":::::: type >>>>>>> ", report.type)
+            print ("###### res[report.id].get('account') >>>>>> ", res[report.id].get('account'))
+            # print ('\n\n\n===========reprot====',report)
+            # print (":::::: res[report.id].get('account') >>>>>>> ", res[report.id].get('account'))
+            
+            parent_initial_balance = 0.0
+            accounts_initital_balance = {}
+            parent_balance = 0.0
+            if date_from:
+                date_context_update = data.get('comparison_context')
+                date1 = datetime.strptime(str(date_from),'%Y-%m-%d')
+                prev_day_from = date1 - timedelta(days = 1)
+                prev_day_from_str = str(prev_day_from)[0:10]
+                print ("### prev_day_from >>>>>>>> ", str(prev_day_from))
+                date_context_update.update({
+                    'date_from': '2019-01-01',
+                    'date_to': prev_day_from_str,
+                    })
+                report_initital_balance = self.with_context(date_context_update)._compute_report_balance(child_reports)
+                # print (":::::: CALCULANDO MANUALMENTE >>>> ",report_initital_balance)
+                parent_initial_balance = report_initital_balance[report.id]['balance'] * report.sign
+                print ("********* parent_initial_balance >>>>>>> ", parent_initial_balance)
+                ####### Sacando los balances de las lineas #########
+                if report_initital_balance[report.id].get('account'):
+                    for account_id, value in report_initital_balance[report.id]['account'].items():
+                        flag = False
+                        account = self.env['account.account'].browse(account_id)
+                        if data['debit_credit']:
+                            if not account.company_id.currency_id.is_zero(value['debit']) or not account.company_id.currency_id.is_zero(value['credit']):
+                                flag = True
+                        vals_balance = value['balance'] * report.sign or 0.0
+                        if not account.company_id.currency_id.is_zero(vals_balance):
+                            flag = True
+                        if data['enable_filter']:
+                            vals_balance_cmp = value['comp_bal'] * report.sign
+                            if not account.company_id.currency_id.is_zero(vals_balance_cmp):
+                                flag = True
+                        if flag:
+                            accounts_initital_balance.update({
+                               account_id: vals_balance,
+                            })
+            print ("####### accounts_initital_balance >>>>>>>>> ", accounts_initital_balance)
+            parent_balance = res[report.id]['balance'] * report.sign
+            vals = {
+                'name': report.name,
+                'balance': parent_balance,
+                'type': 'report',
+                'level': bool(report.style_overwrite) and report.style_overwrite or report.level,
+                'account_type': report.type or False, #used to underline the financial report balances
+                'report_side': report.report_side,
+                'account_id': False,
+                'account_ids': False,
+                'initial_balance': parent_initial_balance,
+                'parent_initial_balance': parent_initial_balance,
+                'parent_balance': parent_balance,
+            }
+            if report.report_side and report.report_side == 'right':
+                data['right'] = True
+            # print ("\n\n\n\n===========right=====================",data.get('right'))
+            if data['debit_credit']:
+                vals['debit'] = res[report.id]['debit']
+                vals['credit'] = res[report.id]['credit']
+
+            if data['enable_filter']:
+                vals['balance_cmp'] = res[report.id]['comp_bal'] * report.sign
+            
+            #### Este apartado me funciona cuando calculo manualmente el Saldo Inicial ####
+            # ####### Sacando las Cuentas del Nivel 1 #########
+            # account_ids = []
+            # if res[report.id].get('account'):
+            #     for account_id, value in res[report.id]['account'].items():
+            #         flag = False
+            #         account = self.env['account.account'].browse(account_id)
+            #         if data['debit_credit']:
+            #             if not account.company_id.currency_id.is_zero(value['debit']) or not account.company_id.currency_id.is_zero(value['credit']):
+            #                 flag = True
+            #         vals_balance = value['balance'] * report.sign or 0.0
+            #         if not account.company_id.currency_id.is_zero(vals_balance):
+            #             flag = True
+            #         if data['enable_filter']:
+            #             vals_balance_cmp = value['comp_bal'] * report.sign
+            #             if not account.company_id.currency_id.is_zero(vals_balance_cmp):
+            #                 flag = True
+            #         if flag:
+            #             account_ids.append(account_id)
+            # if account_ids:
+            #     vals.update({
+            #         'account_ids': account_ids,
+            #         })
+
+            lines.append(vals)
+            if report.display_detail == 'no_detail':
+                #the rest of the loop is used to display the details of the financial report, so it's not needed here.
+                continue
+            
+            if res[report.id].get('account'):
+                sub_lines = []
+                for account_id, value in res[report.id]['account'].items():
+                    #if there are accounts to display, we add them to the lines with a level equals to their level in
+                    #the COA + 1 (to avoid having them with a too low level that would conflicts with the level of data
+                    #financial reports for Assets, liabilities...)
+                    flag = False
+                    account = self.env['account.account'].browse(account_id)
+                    initial_balance = 0.0
+                    vals = {
+                        'name': account.code + ' ' + account.name,
+                        'balance': value['balance'] * report.sign or 0.0,
+                        'type': 'account',
+                        'level': report.display_detail == 'detail_with_hierarchy' and 4,
+                        'account_type': account.internal_type,
+                        'report_side': report.report_side,
+                        'account_id': account_id,
+                        'account_ids': False,
+                    }
+                    if accounts_initital_balance:
+                        if account_id in accounts_initital_balance:
+                            initial_balance = accounts_initital_balance[account_id]
+                    print ("### initial_balance >>>>> ", initial_balance)
+                    vals['initial_balance'] = initial_balance
+                    vals['parent_initial_balance'] = parent_initial_balance
+                    vals['parent_balance'] = parent_balance
+
+                    if data['debit_credit']:
+                        vals['debit'] = value['debit']
+                        vals['credit'] = value['credit']
+                        if not account.company_id.currency_id.is_zero(vals['debit']) or not account.company_id.currency_id.is_zero(vals['credit']):
+                            flag = True
+                    if not account.company_id.currency_id.is_zero(vals['balance']):
+                        flag = True
+                    if data['enable_filter']:
+                        vals['balance_cmp'] = value['comp_bal'] * report.sign
+                        if not account.company_id.currency_id.is_zero(vals['balance_cmp']):
+                            flag = True
+                    if flag:
+                        sub_lines.append(vals)
+                lines += sorted(sub_lines, key=lambda sub_line: sub_line['name'])
+        return lines
+
+
+    def _compute_account_initial_balance(self, accounts, date_from, grouped_by_account=False):
+        print ("#### _compute_account_initial_balance >>>>>>> " )
+        print (":::::::: accounts >>>>>>> ", accounts )
+        print (":::::::: date_from >>>>>>> ", date_from )
+        """ compute the balance, debit and credit for the provided accounts
+        """
+        mapping = {
+            'balance': "COALESCE(SUM(debit),0) - COALESCE(SUM(credit), 0) as balance",
+            'debit': "COALESCE(SUM(debit), 0) as debit",
+            'credit': "COALESCE(SUM(credit), 0) as credit",
+        }
+        initial_balance = 0.0
+        res = {}
+        if accounts and date_from:
+            tables, where_clause, where_params = self.env['account.move.line']._query_get()
+            tables = tables.replace('"', '') if tables else "account_move_line"
+            wheres = [""]
+            if where_clause.strip():
+                wheres.append(where_clause.strip())
+            filters = " AND ".join(wheres)
+            if date_from:
+                filters = filters + " AND date < '%s' " % date_from
+            if grouped_by_account:
+                request = "SELECT account_id as id, " + ', '.join(mapping.values()) + \
+                       " FROM " + tables + \
+                       " WHERE account_id IN %s " \
+                            + filters + \
+                            " GROUP BY account_id"
+            else:
+                request = "SELECT " + ', '.join(mapping.values()) + \
+                       " FROM " + tables + \
+                       " WHERE account_id IN %s " \
+                            + filters 
+            params = (tuple(accounts),) + tuple(where_params)
+            # print ("\n\n\n\n\n\n=========params", request % tuple(params))
+            # print (":::::::: request >>>>>>> ", request )
+            # print (":::::::: params >>>>>>> ", params )
+            self.env.cr.execute(request, params)
+            res = self.env.cr.dictfetchall()
+            if res:
+                return res[0]
+            print ("#### res >>>>>>> ", res)
+        return res
+
+
 
     @api.multi
     def print_excel_report_estado_resultados(self):
@@ -531,6 +742,7 @@ class AccountingReport(models.TransientModel):
         ############# ESTILOS ###########
 
         num_format = '$ #,##0.00'
+        percent_format = '0.00%'
         bg_gray = '#D8D8D8'
 
         format_period_title = workbook.add_format({
@@ -596,6 +808,10 @@ class AccountingReport(models.TransientModel):
         format_header_border_bg_right.set_border(4)
         format_header_border_bg_right.set_font_size(12)
 
+        format_header_border_bg_center_percent = workbook.add_format({'bold': True, 'valign':   'vcenter', 'align':   'center', 'text_wrap': True, 'num_format': percent_format})
+        format_header_border_bg_center_percent.set_border(4)
+        format_header_border_bg_center_percent.set_font_size(12)
+
         format_header_border_bg_left_yll = workbook.add_format({'bold': True, 'valign':   'vcenter', 'align':   'left', 'text_wrap': True, 'num_format': '$ #,##0.00'})
         format_header_border_bg_left_yll.set_border(4)
         format_header_border_bg_left_yll.set_bg_color("#f7f4be")
@@ -605,6 +821,11 @@ class AccountingReport(models.TransientModel):
         format_header_border_bg_right_yll.set_border(4)
         format_header_border_bg_right_yll.set_bg_color("#f7f4be")
         format_header_border_bg_right_yll.set_font_size(12)
+
+        format_header_border_bg_center_yll_percent = workbook.add_format({'bold': True, 'valign':   'vcenter', 'align':   'center', 'text_wrap': True, 'num_format': percent_format})
+        format_header_border_bg_center_yll_percent.set_border(4)
+        format_header_border_bg_center_yll_percent.set_bg_color("#f7f4be")
+        format_header_border_bg_center_yll_percent.set_font_size(12)
 
         format_header_border_bg_right_gray = workbook.add_format({'bold': True, 'valign':   'vcenter', 'align':   'right', 'text_wrap': True})
         format_header_border_bg_right_gray.set_border(4)
@@ -658,14 +879,17 @@ class AccountingReport(models.TransientModel):
 
         sheet.merge_range('G3:H3',self.env.user.company_id.name,format_bold_border2)
         sheet.merge_range('G4:H4',self.env.user.company_id.vat,format_bold_border2)
-        if self.date_to and self.date_from:
+        fecha_creacion = convert_date_to_MX(str(fields.Date.today()))
+        if self.date_from :
             sheet.write('F7','PERIODO:',format_bold_border_tit_gray)
             date_from_c = convert_date_to_MX(str(date_from))
-            date_to_c = convert_date_to_MX(str(date_to))
+            if not self.date_to:
+                date_to_c = fecha_creacion
+            else:
+                date_to_c = convert_date_to_MX(str(date_to))
             sheet.merge_range('G7:H7', date_from_c+' A '+date_to_c, format_bold_border2)
         # # sheet.merge_range('G4:H4',format_bold_border2)
 
-        fecha_creacion = convert_date_to_MX(str(fields.Date.today()))
         sheet.merge_range('G5:H5',fecha_creacion,format_bold_border2)
         target_move = ""
         if data['form']['target_move'] == 'all':
@@ -680,6 +904,7 @@ class AccountingReport(models.TransientModel):
         # sheet.merge_range('G8:H8', department.name,format_bold_border2)
         sheet.set_column('A:A', 40)
         sheet.set_column('B:B', 20)
+        sheet.set_column('C:C', 20)
 
         sheet.set_column('D:D', 40)
         sheet.set_column('E:E', 20)
@@ -730,16 +955,72 @@ class AccountingReport(models.TransientModel):
                 name = each['name']
                 print ("#---- NAME >>>> ", name)
 
+                ### PRUEBA DEL BALANCE - CALCULANDOLO MANUALMENTE ##
+                # account_ids = []
+                # if each_level == 1:
+                #     account_ids = each.get('account_ids', [])
+                #     print ("::: account_ids >>>> ", account_ids)
+                # else:
+                #     account_id = each.get('account_id', False)
+                #     if account_id:
+                #         account_ids = [account_id]
+
+                # #### Calculando el Balance Inicial de Periodos Anteriores ###
+                # compute_initial_balance = self._compute_account_initial_balance(account_ids, date_from)
+                # print ("### compute_initial_balance >>>>> ", compute_initial_balance)
+                # initial_balance = 0.0
+                # if compute_initial_balance:
+                #     initial_balance = compute_initial_balance['balance']
+
+                ######## SEGUNDA PRUEBA CON LA RECURSIVIDAD OBTENIDA DEL CALCULO DEL REPORTE ####
+                initial_balance = each.get('initial_balance', 0.0)
+                parent_initial_balance = each.get('parent_initial_balance', 0.0)
+                parent_balance = each.get('parent_balance', 0.0)
+                print (":::::::::::: initial_balance >>>>>>>>>>> ", initial_balance)
+                print (":::::::::::: parent_initial_balance >>>>>>>>>>> ", parent_initial_balance)
+                print (":::::::::::: parent_balance >>>>>>>>>>> ", parent_balance)
+                line_balance = each.get('balance', 0.0)
+                
+                ### Sacando los Porcentajes ###
+                ### Periodo #####
+                percentage_period = 0.0
+                if initial_balance == parent_initial_balance:
+                    if initial_balance == 0.0:
+                        percentage_period = 0.0
+                    else:
+                        percentage_period = 1.0
+                elif initial_balance == 0.0 and parent_initial_balance == 0.0:
+                    percentage_period = 0.0
+                else:
+                    percentage_period =  initial_balance / parent_initial_balance
+                print (":::::::::::: percentage_period >>>>>>>>>>> ", percentage_period)
+                ### Acumulado #####
+                percentage_acum = 0.0
+                if line_balance == parent_balance:
+                    percentage_acum = 1.0
+                elif line_balance == 0.0 and parent_balance == 0.0:
+                    percentage_acum = 0.0
+                else:
+                    percentage_acum =  line_balance / parent_balance
+                print (":::::::::::: percentage_acum >>>>>>>>>>> ", percentage_acum)
+
                 line_type = each['type']
                 if each['report_side'] != 'right':
                     #### Saltos de Columna ########
                     print ("### != RIGHT >>>>>>>>>> ")
                     if line_type == 'report':
                         sheet.write(desc_i+str(i), name, format_header_border_bg_left_yll)
-                        sheet.write(acum_i+str(i), each['balance'], format_header_border_bg_right_yll)
+                        sheet.write(periodo_i+str(i), initial_balance, format_header_border_bg_right_yll)
+                        sheet.write(percent_01_i+str(i), percentage_period, format_header_border_bg_center_yll_percent)
+                        sheet.write(acum_i+str(i), line_balance, format_header_border_bg_right_yll)
+                        sheet.write(percent_02_i+str(i), percentage_acum, format_header_border_bg_center_yll_percent)
                     else:
                         sheet.write(desc_i+str(i), name, format_header_border_bg_left)
-                        sheet.write(acum_i+str(i), each['balance'], format_header_border_bg_right)
+                        sheet.write(periodo_i+str(i), initial_balance, format_header_border_bg_right)
+                        sheet.write(percent_01_i+str(i), percentage_period, format_header_border_bg_center_percent)
+                        sheet.write(acum_i+str(i), line_balance, format_header_border_bg_right)
+                        sheet.write(percent_02_i+str(i), percentage_acum, format_header_border_bg_center_percent)
+
                     #### Fin de Saltos de C.#######
 #                        sheet1.write(row, 2, self.env.user.company_id.currency_id.symbol, left)
                     if each['level'] == 1:
@@ -748,11 +1029,17 @@ class AccountingReport(models.TransientModel):
                     print ("### RIGHT >>>>>>>>>> ")
                     if line_type == 'report':
                         sheet.write(desc_i+str(i), name, format_header_border_bg_left_yll)
-                        sheet.write(acum_i+str(i), each['balance'], format_header_border_bg_right_yll)
+                        sheet.write(periodo_i+str(i), initial_balance, format_header_border_bg_right_yll)
+                        sheet.write(percent_01_i+str(i), percentage_period, format_header_border_bg_center_yll_percent)
+                        sheet.write(acum_i+str(i), line_balance, format_header_border_bg_right_yll)
+                        sheet.write(percent_02_i+str(i), percentage_acum, format_header_border_bg_center_yll_percent)
                     else:
                         sheet.write(desc_i+str(i), name, format_header_border_bg_left)
-                        sheet.write(acum_i+str(i), each['balance'], format_header_border_bg_right)
-                    
+                        sheet.write(periodo_i+str(i), initial_balance, format_header_border_bg_right)
+                        sheet.write(percent_01_i+str(i), percentage_period, format_header_border_bg_center_percent)
+                        sheet.write(acum_i+str(i), line_balance, format_header_border_bg_right)
+                        sheet.write(percent_02_i+str(i), percentage_acum, format_header_border_bg_center_percent)
+
                 #### Saltos de Columna ######## 
 
                 i+=1
