@@ -110,17 +110,11 @@ class AccountingReport(models.TransientModel):
 
     @api.multi
     def print_excel_report(self):
-        print ("###### print_excel_report  >>>>>>>>>>>> ")
-        print ("###### self  >>>>>>>>>>>> ", self)
         self.ensure_one()
-        print ("###### account_report_id  >>>>>>>>>>>> ", self.account_report_id)
         
         # general_balance_2_columns
         # estado_resultados_extended
         tables, where_clause, where_params = self.env['account.move.line']._query_get()
-        print ("######### tables >>>>>> ", tables)
-        print ("######### where_clause >>>>>> ", where_clause)
-        print ("######### where_params >>>>>> ", where_params)
         ####### Validación del Balance General ##########
         if self.account_report_id and not self.account_report_id.special_output_report:
             return super(AccountingReport, self).print_excel_report()
@@ -145,17 +139,14 @@ class AccountingReport(models.TransientModel):
 #                data['form'][field] = data['form'][field][0]
         comparison_context = self._build_comparison_context(data)
         data['form']['comparison_context'] = comparison_context
-        print ("###### comparison_context  >>>>>>>>>>>> ", comparison_context)
 #        if data['form']['hierarchy_type'] == 'hierarchy':
 #            report_lines = self.get_account_lines_hierarchy(data['form'])
 #        else:
         report_lines = self.get_account_lines(data['form'])
-        print ("###### report_lines  >>>>>>>>>>>> ", report_lines)
 
         ### Las lineas se identifican por el campo Level #####
         ### Si el Level es 1 indica que debe ir en la siguiente columna ####
 
-        print ("###### data  >>>>>>>>>>>> ", data)
         
         date_to = self.date_to
         date_from = self.date_from
@@ -389,8 +380,6 @@ class AccountingReport(models.TransientModel):
             #### Saltos de Columna ######## 
             each_level = each['level']
             #### Fin de Saltos de C.#######
-            print ("#### 01 LEVEL >>>>>>>> ", each['level'])
-            print ("######### each >>>>>>> ", each)
             if each['level'] != 0:
                 # #### Saltos de Columna ######## 
                 if each_level == 1:
@@ -407,14 +396,12 @@ class AccountingReport(models.TransientModel):
                 name = ""
                 gap = " "
                 name = each['name']
-                print ("#---- NAME >>>> ", name)
 
                 letra_c = indice_to_column_string(letra_i)
                 letra_c_02 = indice_to_column_string(letra_i+1)
                 line_type = each['type']
                 if each['report_side'] != 'right':
                     #### Saltos de Columna ########
-                    print ("### != RIGHT >>>>>>>>>> ")
                     if line_type == 'report':
                         sheet.write(letra_c+str(i), name, format_header_border_bg_left_yll)
                         sheet.write(letra_c_02+str(i), each['balance'], format_header_border_bg_right_yll)
@@ -426,7 +413,6 @@ class AccountingReport(models.TransientModel):
                     if each['level'] == 1:
                         total_left += each['balance']
                 elif each['report_side'] == 'right':
-                    print ("### RIGHT >>>>>>>>>> ")
                     if line_type == 'report':
                         sheet.write(letra_c+str(i), name, format_header_border_bg_left_yll)
                         sheet.write(letra_c_02+str(i), each['balance'], format_header_border_bg_right_yll)
@@ -440,7 +426,6 @@ class AccountingReport(models.TransientModel):
                 if prev_indexsum > last_sum_index:
                     last_sum_index = prev_indexsum
                 i+=1
-                print ("#::::::::::::::::::: last_sum_index >>>>>>>>>>>>>>> ", last_sum_index)
                 #### Fin de Saltos de C.#######
             else:
                 if each_level == 0:
@@ -479,18 +464,13 @@ class AccountingReport(models.TransientModel):
 
 
     def get_account_lines(self, data):
-        print ("########### get_account_lines >>>>>>>>>>>>> ")
         lines = []
         date_to = self.date_to
         date_from = self.date_from
-        print (":::::: date_to >>>>>>> ", date_to)
-        print (":::::: date_from >>>>>>> ", date_from)
         # print ("\n\n\n======data['account_report_id'][0]",data['account_report_id'][0])
         account_report = self.env['account.financial.report'].search([('id', '=', data['account_report_id'][0])])
         child_reports = account_report._get_children_by_order()
-        print ("### data.get('used_context') >>>>> ",data.get('used_context'))
         res = self.with_context(data.get('used_context'))._compute_report_balance(child_reports)
-        print ("### RES >>>>>>>>>> ", res)
         if data['enable_filter']:
             comparison_res = self.with_context(data.get('comparison_context'))._compute_report_balance(child_reports)
             for report_id, value in comparison_res.items():
@@ -500,10 +480,6 @@ class AccountingReport(models.TransientModel):
                     for account_id, val in comparison_res[report_id].get('account').items():
                         report_acc[account_id]['comp_bal'] = val['balance']
         for report in child_reports:
-            print (":::::: report >>>>>>> ", report)
-            print (":::::: name >>>>>>> ", report.name)
-            print (":::::: type >>>>>>> ", report.type)
-            print ("###### res[report.id].get('account') >>>>>> ", res[report.id].get('account'))
             # print ('\n\n\n===========reprot====',report)
             # print (":::::: res[report.id].get('account') >>>>>>> ", res[report.id].get('account'))
             
@@ -515,7 +491,6 @@ class AccountingReport(models.TransientModel):
                 date1 = datetime.strptime(str(date_from),'%Y-%m-%d')
                 prev_day_from = date1 - timedelta(days = 1)
                 prev_day_from_str = str(prev_day_from)[0:10]
-                print ("### prev_day_from >>>>>>>> ", str(prev_day_from))
                 date_context_update.update({
                     'date_from': '2019-01-01',
                     'date_to': prev_day_from_str,
@@ -523,7 +498,6 @@ class AccountingReport(models.TransientModel):
                 report_initital_balance = self.with_context(date_context_update)._compute_report_balance(child_reports)
                 # print (":::::: CALCULANDO MANUALMENTE >>>> ",report_initital_balance)
                 parent_initial_balance = report_initital_balance[report.id]['balance'] * report.sign
-                print ("********* parent_initial_balance >>>>>>> ", parent_initial_balance)
                 ####### Sacando los balances de las lineas #########
                 if report_initital_balance[report.id].get('account'):
                     for account_id, value in report_initital_balance[report.id]['account'].items():
@@ -543,7 +517,6 @@ class AccountingReport(models.TransientModel):
                             accounts_initital_balance.update({
                                account_id: vals_balance,
                             })
-            print ("####### accounts_initital_balance >>>>>>>>> ", accounts_initital_balance)
             parent_balance = res[report.id]['balance'] * report.sign
             vals = {
                 'name': report.name,
@@ -619,7 +592,6 @@ class AccountingReport(models.TransientModel):
                     if accounts_initital_balance:
                         if account_id in accounts_initital_balance:
                             initial_balance = accounts_initital_balance[account_id]
-                    print ("### initial_balance >>>>> ", initial_balance)
                     vals['initial_balance'] = initial_balance
                     vals['parent_initial_balance'] = parent_initial_balance
                     vals['parent_balance'] = parent_balance
@@ -642,9 +614,6 @@ class AccountingReport(models.TransientModel):
 
 
     def _compute_account_initial_balance(self, accounts, date_from, grouped_by_account=False):
-        print ("#### _compute_account_initial_balance >>>>>>> " )
-        print (":::::::: accounts >>>>>>> ", accounts )
-        print (":::::::: date_from >>>>>>> ", date_from )
         """ compute the balance, debit and credit for the provided accounts
         """
         mapping = {
@@ -682,7 +651,6 @@ class AccountingReport(models.TransientModel):
             res = self.env.cr.dictfetchall()
             if res:
                 return res[0]
-            print ("#### res >>>>>>> ", res)
         return res
 
 
@@ -703,17 +671,13 @@ class AccountingReport(models.TransientModel):
 #                data['form'][field] = data['form'][field][0]
         comparison_context = self._build_comparison_context(data)
         data['form']['comparison_context'] = comparison_context
-        print ("###### comparison_context  >>>>>>>>>>>> ", comparison_context)
 #        if data['form']['hierarchy_type'] == 'hierarchy':
 #            report_lines = self.get_account_lines_hierarchy(data['form'])
 #        else:
         report_lines = self.get_account_lines(data['form'])
-        print ("###### report_lines  >>>>>>>>>>>> ", report_lines)
 
         ### Las lineas se identifican por el campo Level #####
         ### Si el Level es 1 indica que debe ir en la siguiente columna ####
-
-        print ("###### data  >>>>>>>>>>>> ", data)
         
         date_to = self.date_to
         date_from = self.date_from
@@ -947,13 +911,10 @@ class AccountingReport(models.TransientModel):
             #### Saltos de Columna ######## 
             each_level = each['level']
             #### Fin de Saltos de C.#######
-            print ("#### 01 LEVEL >>>>>>>> ", each['level'])
-            print ("######### each >>>>>>> ", each)
             if each['level'] != 0:
                 name = ""
                 gap = " "
                 name = each['name']
-                print ("#---- NAME >>>> ", name)
 
                 ### PRUEBA DEL BALANCE - CALCULANDOLO MANUALMENTE ##
                 # account_ids = []
@@ -976,9 +937,6 @@ class AccountingReport(models.TransientModel):
                 initial_balance = each.get('initial_balance', 0.0)
                 parent_initial_balance = each.get('parent_initial_balance', 0.0)
                 parent_balance = each.get('parent_balance', 0.0)
-                print (":::::::::::: initial_balance >>>>>>>>>>> ", initial_balance)
-                print (":::::::::::: parent_initial_balance >>>>>>>>>>> ", parent_initial_balance)
-                print (":::::::::::: parent_balance >>>>>>>>>>> ", parent_balance)
                 line_balance = each.get('balance', 0.0)
                 
                 ### Sacando los Porcentajes ###
@@ -993,7 +951,6 @@ class AccountingReport(models.TransientModel):
                     percentage_period = 0.0
                 else:
                     percentage_period =  initial_balance / parent_initial_balance
-                print (":::::::::::: percentage_period >>>>>>>>>>> ", percentage_period)
                 ### Acumulado #####
                 percentage_acum = 0.0
                 if line_balance == parent_balance:
@@ -1002,12 +959,10 @@ class AccountingReport(models.TransientModel):
                     percentage_acum = 0.0
                 else:
                     percentage_acum =  line_balance / parent_balance
-                print (":::::::::::: percentage_acum >>>>>>>>>>> ", percentage_acum)
 
                 line_type = each['type']
                 if each['report_side'] != 'right':
                     #### Saltos de Columna ########
-                    print ("### != RIGHT >>>>>>>>>> ")
                     if line_type == 'report':
                         sheet.write(desc_i+str(i), name, format_header_border_bg_left_yll)
                         sheet.write(periodo_i+str(i), initial_balance, format_header_border_bg_right_yll)
@@ -1026,7 +981,6 @@ class AccountingReport(models.TransientModel):
                     if each['level'] == 1:
                         total_left += each['balance']
                 elif each['report_side'] == 'right':
-                    print ("### RIGHT >>>>>>>>>> ")
                     if line_type == 'report':
                         sheet.write(desc_i+str(i), name, format_header_border_bg_left_yll)
                         sheet.write(periodo_i+str(i), initial_balance, format_header_border_bg_right_yll)
