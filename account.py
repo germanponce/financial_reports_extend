@@ -1032,3 +1032,600 @@ class AccountingReport(models.TransientModel):
                 'target': 'new'
                 }
 
+
+
+################## REPORTES DE LA OCA ####################
+######################### INICIO #########################
+
+
+class GeneralLedgerReportWizard(models.TransientModel):
+    _inherit = "general.ledger.report.wizard"
+
+    hide_partners = fields.Boolean('Sin desgloce de Empresas', 
+                                    help='Oculta el detalle de Empresas y agregar las columnas Saldo Inicial y Final', 
+                                    default=True)
+
+    # add_initial_balance = fields.Boolean('Agregar Balance Inicial')
+
+    def _compute_account_initial_balance(self, accounts, date_from, grouped_by_account=False):
+        """ compute the balance, debit and credit for the provided accounts
+        """
+        mapping = {
+            'balance': "COALESCE(SUM(debit),0) - COALESCE(SUM(credit), 0) as balance",
+            'debit': "COALESCE(SUM(debit), 0) as debit",
+            'credit': "COALESCE(SUM(credit), 0) as credit",
+        }
+        initial_balance = 0.0
+        res = {}
+        if accounts and date_from:
+            tables, where_clause, where_params = self.env['account.move.line']._query_get()
+            tables = tables.replace('"', '') if tables else "account_move_line"
+            wheres = [""]
+            if where_clause.strip():
+                wheres.append(where_clause.strip())
+            filters = " AND ".join(wheres)
+            if date_from:
+                filters = filters + " AND date < '%s' " % date_from
+            if grouped_by_account:
+                request = "SELECT account_id as id, " + ', '.join(mapping.values()) + \
+                       " FROM " + tables + \
+                       " WHERE account_id IN %s " \
+                            + filters + \
+                            " GROUP BY account_id"
+            else:
+                request = "SELECT " + ', '.join(mapping.values()) + \
+                       " FROM " + tables + \
+                       " WHERE account_id IN %s " \
+                            + filters 
+            params = (tuple(accounts),) + tuple(where_params)
+            # print ("\n\n\n\n\n\n=========params", request % tuple(params))
+            # print (":::::::: request >>>>>>> ", request )
+            # print (":::::::: params >>>>>>> ", params )
+            self.env.cr.execute(request, params)
+            res = self.env.cr.dictfetchall()
+            if res:
+                return res[0]
+        return res
+
+
+    @api.multi
+    def button_export_xlsx(self):
+        self.ensure_one()
+        report_type = 'xlsx'
+        date_from = self.date_from
+        date_to = self.date_to
+
+        date_context_update = dict(self._context)
+        date1 = datetime.strptime(str(date_from),'%Y-%m-%d')
+        prev_day_from = date1 - timedelta(days = 1)
+        prev_day_from_str = str(prev_day_from)[0:10]
+        date_context_update.update({
+            'initial_balance_date_from': '2019-01-01',
+            'initial_balance_date_to': prev_day_from_str,
+            'hide_partners': self.hide_partners,
+            })
+        return self.with_context(date_context_update)._export(report_type)
+
+    def _export(self, report_type):
+        """Default export is PDF."""
+        model = self.env['report_general_ledger']
+        report = model.create(self._prepare_report_general_ledger())
+        report.compute_data_for_report()
+        context = self._context
+
+        return report.with_context(context).print_report(report_type)
+
+
+class GeneralLedgerReportCompute(models.TransientModel):
+    _inherit = 'report_general_ledger'
+
+
+    @api.multi
+    def print_report(self, report_type):
+        context = dict(self._context)
+        self.ensure_one()
+        if report_type == 'xlsx':
+            
+            hide_partners = context.get('hide_partners', False)
+            if hide_partners:
+                report_name = 'a_f_r.report_general_ledger_xlsx_grouped'
+            else:
+                report_name = 'a_f_r.report_general_ledger_xlsx'
+        else:
+            report_name = 'account_financial_report.' \
+                          'report_general_ledger_qweb'
+        report_result = self.env['ir.actions.report'].search(
+            [('report_name', '=', report_name),
+             ('report_type', '=', report_type)], limit=1)
+        return report_result.report_action(self)
+
+    @api.multi
+    def compute_data_for_report(self,
+                                with_line_details=True,
+                                with_partners=True):
+        context = self._context
+        params = context.get('params', {})  
+        initial_balance_date_from = context.get('initial_balance_date_from', False)
+        initial_balance_date_to = context.get('initial_balance_date_to', False)
+        hide_partners = context.get('hide_partners', False)
+        res = super().compute_data_for_report(with_line_details=with_line_details,
+                                              with_partners=with_partners)
+        return res
+
+class GeneralLedgerXslxGrouped(models.AbstractModel):
+    _name = 'report.a_f_r.report_general_ledger_xlsx_grouped'
+    _inherit = 'report.account_financial_report.abstract_report_xlsx'
+
+    def _get_report_name(self, report):
+        return self._get_report_complete_name(report, report_name)
+
+    def _get_report_columns(self, report):
+        context = dict(self._context)
+
+        res = {
+            0: {'header': _('Date'), 'field': 'date', 'width': 11},
+            1: {'header': _('Entry'), 'field': 'entry', 'width': 18},
+            2: {'header': _('Journal'), 'field': 'journal', 'width': 8},
+            3: {'header': _('Account'), 'field': 'account', 'width': 9},
+            4: {'header': _('Taxes'),
+                'field': 'taxes_description',
+                'width': 15},
+            5: {'header': _('Partner'), 'field': 'partner', 'width': 25},
+            6: {'header': _('Ref - Label'), 'field': 'label', 'width': 40},
+            7: {'header': _('Cost center'),
+                'field': 'cost_center',
+                'width': 15},
+            8: {'header': _('Tags'),
+                'field': 'tags',
+                'width': 10},
+            9: {'header': _('Rec.'), 'field': 'matching_number', 'width': 5},
+            10: {'header': _('Saldo Inicial'),
+                 'field': 'initial_balance',
+                 'field_initial_balance': 'initial_balance',
+                 'field_final_balance': 'final_balance',
+                 'type': 'amount',
+                 'width': 14},
+            11: {'header': _('Debit'),
+                 'field': 'debit',
+                 'field_initial_balance': 'initial_debit',
+                 'field_final_balance': 'final_debit',
+                 'type': 'amount',
+                 'width': 14},
+            12: {'header': _('Credit'),
+                 'field': 'credit',
+                 'field_initial_balance': 'initial_credit',
+                 'field_final_balance': 'final_credit',
+                 'type': 'amount',
+                 'width': 14},
+            13: {'header': _('Cumul. Bal.'),
+                 'field': 'cumul_balance',
+                 'field_initial_balance': 'initial_balance',
+                 'field_final_balance': 'final_balance',
+                 'type': 'amount',
+                 'width': 14},
+        }
+        if report.foreign_currency:
+            foreign_currency = {
+                13: {'header': _('Cur.'),
+                     'field': 'currency_id',
+                     'field_currency_balance': 'currency_id',
+                     'type': 'many2one', 'width': 7},
+                14: {'header': _('Amount cur.'),
+                     'field': 'amount_currency',
+                     'field_initial_balance':
+                         'initial_balance_foreign_currency',
+                     'field_final_balance':
+                         'final_balance_foreign_currency',
+                     'type': 'amount_currency',
+                     'width': 14},
+            }
+            res = {**res, **foreign_currency}
+        return res
+
+    def _get_report_filters(self, report):
+        return [
+            [
+                _('Date range filter'),
+                _('From: %s To: %s') % (report.date_from, report.date_to),
+            ],
+            [
+                _('Target moves filter'),
+                _('All posted entries') if report.only_posted_moves
+                else _('All entries'),
+            ],
+            [
+                _('Account balance at 0 filter'),
+                _('Hide') if report.hide_account_at_0 else _('Show'),
+            ],
+            [
+                _('Centralize filter'),
+                _('Yes') if report.centralize else _('No'),
+            ],
+            [
+                _('Show analytic tags'),
+                _('Yes') if report.show_analytic_tags else _('No'),
+            ],
+            [
+                _('Show foreign currency'),
+                _('Yes') if report.foreign_currency else _('No')
+            ],
+        ]
+
+    def _get_col_count_filter_name(self):
+        return 2
+
+    def _get_col_count_filter_value(self):
+        return 2
+
+    def _get_col_pos_initial_balance_label(self):
+        return 5
+
+    def _get_col_count_final_balance_name(self):
+        return 5
+
+    def _get_col_pos_final_balance_label(self):
+        return 5
+
+    def _generate_report_content(self, workbook, report):
+        # For each account
+        account_move_line = self.env['account.move.line']
+        for account in report.account_ids:
+            # Write account title
+            self.write_array_title(account.code + ' - ' + account.name)
+
+            if not account.partner_ids:
+                # Display array header for move lines
+                self.write_array_header()
+
+                # Display initial balance line for account
+                self.write_initial_balance_special(account)
+
+                # Display account move lines
+                grouped_lines = {}
+                for line in account.move_line_ids:
+                    line_read = line.read()[0]
+                    line_journal = line_read['journal']
+                    line_account = line_read.get('report_account_id','')
+                    line_debit = line_read.get('debit', 0.0)
+                    line_credit = line_read.get('credit', 0.0)
+                    line_cumul_balance = line_read.get('cumul_balance', 0.0)
+
+                    if line_journal not in grouped_lines:
+                        vals = {line_journal:{
+                            3: line_account,
+                            11: line_debit,
+                            12: line_credit,
+                            13: line_cumul_balance,
+                        }
+                        }
+                        grouped_lines.update(vals)
+                    else:
+                        prev_vals = grouped_lines[line_journal]
+                        new_vals = {}
+                        line_account = prev_vals[3]
+                        prev_debit = prev_vals[11]
+                        prev_credit = prev_vals[12]
+                        prev_cumul_balance = prev_vals[13]
+                        new_vals = {
+                                    line_journal:{
+                                        3: line_account,
+                                        11: prev_debit + line_debit,
+                                        12: prev_credit + line_credit,
+                                        13: line_cumul_balance,
+                                                }
+                                    }
+                        grouped_lines.update(new_vals)
+                if grouped_lines:
+                    self.write_lines_grouped(grouped_lines)
+                # print ("#### line_read >>>>>> ", line_read)
+                # self.write_line_special(line)
+            else:
+                # For each partner
+                for partner in account.partner_ids:
+                    # Write partner title
+                    self.write_array_title(partner.name)
+
+                    # Display array header for move lines
+                    self.write_array_header()
+
+                    # Display initial balance line for partner
+                    self.write_initial_balance_special(partner)
+
+                    # Display account move lines
+                    grouped_lines = {}
+                    for line in partner.move_line_ids:
+                        line_read = line.read()[0]
+                        line_journal = line_read['journal']
+                        line_account = line_read.get('report_account_id','')
+                        if not line_account:
+                            move_line_id = line_read.get('move_line_id','')
+                            acmv_line = account_move_line.browse(move_line_id[0])
+                            line_account = acmv_line.account_id.name_get()[0][1]
+                        line_debit = line_read.get('debit', 0.0)
+                        line_credit = line_read.get('credit', 0.0)
+                        line_cumul_balance = line_read.get('cumul_balance', 0.0)
+
+                        if line_journal not in grouped_lines:
+                            vals = {line_journal:{
+                                3: line_account,
+                                11: line_debit,
+                                12: line_credit,
+                                13: line_cumul_balance,
+                            }
+                            }
+                            grouped_lines.update(vals)
+                        else:
+                            prev_vals = grouped_lines[line_journal]
+                            new_vals = {}
+                            line_account = prev_vals[3]
+                            prev_debit = prev_vals[11]
+                            prev_credit = prev_vals[12]
+                            prev_cumul_balance = prev_vals[13]
+                            new_vals = {
+                                        line_journal:{
+                                            3: line_account,
+                                            11: prev_debit + line_debit,
+                                            12: prev_credit + line_credit,
+                                            13: line_cumul_balance,
+                                                    }
+                                        }
+                            grouped_lines.update(new_vals)
+                    if grouped_lines:
+                        self.write_lines_grouped(grouped_lines)
+                    # print ("#### line_read >>>>>> ", line_read)
+                    # self.write_line_special(line)
+
+                    # Display ending balance line for partner
+                    self.write_ending_balance_special(partner)
+
+                    # Line break
+                    self.row_pos += 1
+
+            # Display ending balance line for account
+            if not report.filter_partner_ids:
+                self.write_ending_balance_special(account)
+
+            # 2 lines break
+            self.row_pos += 2
+
+    def write_initial_balance_special(self, my_object):
+        """Specific function to write initial balance for General Ledger"""
+        if 'partner' in my_object._name:
+            label = _('Partner Initial balance')
+            my_object.currency_id = my_object.report_account_id.currency_id
+        elif 'account' in my_object._name:
+            label = _('Initial balance')
+        super(GeneralLedgerXslxGrouped, self).write_initial_balance_special(
+            my_object, label
+        )
+
+    def write_ending_balance_special(self, my_object):
+        """Specific function to write ending balance for General Ledger"""
+        if 'partner' in my_object._name:
+            name = my_object.name
+            label = _('Partner ending balance')
+        elif 'account' in my_object._name:
+            name = my_object.code + ' - ' + my_object.name
+            label = _('Ending balance')
+        super(GeneralLedgerXslxGrouped, self).write_ending_balance_special(
+            my_object, name, label
+        )
+
+class AbstractReportXslx(models.AbstractModel):
+    _inherit = 'report.account_financial_report.abstract_report_xlsx'
+
+    def write_lines_grouped(self, lines_dict):
+
+        for line in lines_dict:
+            journal = line
+            vals = lines_dict.get(journal)
+
+            columns = vals.keys()
+            # Fecha #
+            self.sheet.write_string(self.row_pos, 0, '')
+            # Diario #
+            self.sheet.write_string(self.row_pos, 2, journal)
+            for col_pos in columns:
+                value = vals[col_pos]
+                if col_pos == 3:
+                    account_name = value[1]
+                    self.sheet.write_string(self.row_pos, col_pos, account_name)
+                else:
+                    cell_format = self.format_amount
+                    self.sheet.write_number(
+                        self.row_pos, col_pos, float(value), cell_format
+                    )
+
+        self.row_pos += 1
+
+    def write_line_special(self, line_object):
+        # print ("######### write_line_special >>>>>>>>>>>>>>>> ")
+        # print ("######### line_object >>>>>>>>>>>>>>>> ", line_object)
+        """Write a line on current line using all defined columns field name.
+        Columns are defined with `_get_report_columns` method.
+        """
+        for col_pos, column in self.columns.items():
+            # print (":::::::: col_pos >>> ",col_pos)
+            # print (":::::::: column >>> ",column)
+            if col_pos == 10:
+                self.sheet.write_string(self.row_pos, col_pos, '',
+                                                self.format_bold)
+            else:
+                value = getattr(line_object, column['field'])
+                cell_type = column.get('type', 'string')
+                # print (":::::::: cell_type >>> ",cell_type)
+                # print (":::::::: value >>> ",value)
+                if cell_type == 'many2one':
+                    self.sheet.write_string(
+                        self.row_pos, col_pos, value.name or '', self.format_right)
+                elif cell_type == 'string':
+                    if hasattr(line_object, 'account_group_id') and \
+                            line_object.account_group_id:
+                        self.sheet.write_string(self.row_pos, col_pos, value or '',
+                                                self.format_bold)
+                    else:
+                        self.sheet.write_string(self.row_pos, col_pos, value or '')
+                elif cell_type == 'amount':
+                    if hasattr(line_object, 'account_group_id') and \
+                            line_object.account_group_id:
+                        cell_format = self.format_amount_bold
+                    else:
+                        cell_format = self.format_amount
+                    self.sheet.write_number(
+                        self.row_pos, col_pos, float(value), cell_format
+                    )
+                elif cell_type == 'amount_currency':
+                    if line_object.currency_id:
+                        format_amt = self._get_currency_amt_format(line_object)
+                        self.sheet.write_number(
+                            self.row_pos, col_pos, float(value), format_amt
+                        )
+        self.row_pos += 1
+
+
+    def write_initial_balance_special(self, my_object, label):
+        # print ("### write_initial_balance_special >>>>>>>>> ")
+        # print ("::: my_object >>>>>>>>> ", my_object)
+        vals_read = my_object.read()[0]
+        # print ("::: label >>>>>>>>> ", label)
+        """Write a specific initial balance line on current line
+        using defined columns field_initial_balance name.
+
+        Columns are defined with `_get_report_columns` method.
+        """
+        account_id = False
+        if 'account_id' in vals_read:
+            account_id = vals_read['account_id']
+        else:
+            if 'account_id' in vals_read:
+                account_id = vals_read['report_account_id']
+        account_sign = ""
+        if account_id:
+            account_br = self.env['account.account'].browse(account_id[0])
+            account_sign = account_br.sign if account_br else False
+
+        # print ("### account_sign >>>>>>>>> ", account_sign)
+
+        col_pos_label = self._get_col_pos_initial_balance_label()
+        self.sheet.write(self.row_pos, col_pos_label, label, self.format_right)
+        for col_pos, column in self.columns.items():
+            # print ("######### col_pos >>>>>>>>>>> ",col_pos)
+            # print ("######### column >>>>>>>>>>> ",column)
+            if column.get('field_initial_balance'):
+                value = getattr(my_object, column['field_initial_balance'])
+                
+                cell_type = column.get('type', 'string')
+                if cell_type == 'string':
+                    self.sheet.write_string(self.row_pos, col_pos, value or '')
+                elif cell_type == 'amount':
+                    if account_sign == 1 and col_pos == 11:
+                        self.sheet.write_number(
+                            self.row_pos, col_pos, 0.0, self.format_amount
+                        )
+                    else:
+                        if account_sign == -1 and col_pos == 12:
+                            self.sheet.write_number(
+                                self.row_pos, col_pos, 0.0, self.format_amount
+                            )
+                        else:
+                            self.sheet.write_number(
+                                self.row_pos, col_pos, float(value), self.format_amount
+                            )
+                elif cell_type == 'amount_currency':
+                    if my_object.currency_id:
+                        format_amt = self._get_currency_amt_format(
+                            my_object)
+                        self.sheet.write_number(
+                            self.row_pos, col_pos,
+                            float(value), format_amt
+                        )
+            elif column.get('field_currency_balance'):
+                value = getattr(my_object, column['field_currency_balance'])
+                cell_type = column.get('type', 'string')
+                if cell_type == 'many2one':
+                    if my_object.currency_id:
+                        self.sheet.write_string(
+                            self.row_pos, col_pos,
+                            value.name or '',
+                            self.format_right
+                        )
+        self.row_pos += 1
+
+    def write_ending_balance_special(self, my_object, name, label):
+
+        """Write a specific ending balance line on current line
+        using defined columns field_final_balance name.
+
+        Columns are defined with `_get_report_columns` method.
+        """
+        vals_read = my_object.read()[0]
+
+        account_id = False
+        if 'account_id' in vals_read:
+            account_id = vals_read['account_id']
+        else:
+            if 'account_id' in vals_read:
+                account_id = vals_read['report_account_id']
+        account_sign = ""
+        if account_id:
+            account_br = self.env['account.account'].browse(account_id[0])
+            account_sign = account_br.sign if account_br else False
+
+        initial_balance = vals_read.get('initial_balance',0.0)
+
+        for i in range(0, len(self.columns)):
+            self.sheet.write(self.row_pos, i, '', self.format_header_right)
+        row_count_name = self._get_col_count_final_balance_name()
+        col_pos_label = self._get_col_pos_final_balance_label()
+        self.sheet.merge_range(
+            self.row_pos, 0, self.row_pos, row_count_name - 1, name,
+            self.format_header_left
+        )
+        self.sheet.write(self.row_pos, col_pos_label, label,
+                         self.format_header_right)
+        for col_pos, column in self.columns.items():
+            if column.get('field_final_balance'):
+                value = getattr(my_object, column['field_final_balance'])
+                cell_type = column.get('type', 'string')
+                if cell_type == 'string':
+                    self.sheet.write_string(self.row_pos, col_pos, value or '',
+                                            self.format_header_right)
+                elif cell_type == 'amount':
+                    if col_pos == 11:
+                        self.sheet.write_number(
+                            self.row_pos, col_pos, float(value) - initial_balance,
+                            self.format_header_amount
+                        )
+                    else:
+                        self.sheet.write_number(
+                            self.row_pos, col_pos, float(value),
+                            self.format_header_amount
+                        )
+                elif cell_type == 'amount_currency':
+                    if my_object.currency_id:
+                        format_amt = self._get_currency_amt_header_format(
+                            my_object)
+                        self.sheet.write_number(
+                            self.row_pos, col_pos, float(value),
+                            format_amt
+                        )
+            elif column.get('field_currency_balance'):
+                value = getattr(my_object, column['field_currency_balance'])
+                cell_type = column.get('type', 'string')
+                if cell_type == 'many2one':
+                    if my_object.currency_id:
+                        self.sheet.write_string(
+                            self.row_pos, col_pos,
+                            value.name or '',
+                            self.format_header_right
+                        )
+        self.row_pos += 1
+
+# class AccountReportGeneralBalanceGrouped(models.Model):
+#     _name = 'account.report.general.balance.grouped'
+#     _description = 'Ref. Información Agrupada para el Reporte'
+    
+#     name = fields.Char('Diario', size=128)
+#     account_id = fields.Many2one('account.account', 'Cuenta')
+
+#     

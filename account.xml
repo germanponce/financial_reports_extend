@@ -15,6 +15,29 @@
         </field>
     </record>
 
+    <record id="general_ledger_wizard_extend_argil" model="ir.ui.view">
+        <field name="name">general.ledger.report.wizard</field>
+        <field name="model">general.ledger.report.wizard</field>
+        <field name="inherit_id" ref="account_financial_report.general_ledger_wizard" />
+        <field name="arch" type="xml">
+            <field name="show_analytic_tags" position="after">
+                <field name="hide_partners" />
+                <!-- <field name="add_initial_balance" /> -->
+            </field>
+        </field>
+    </record>
+
+    <!-- XLSX REPORTS -->
+
+    <record id="action_report_general_ledger_xlsx_grouped" model="ir.actions.report">
+        <field name="name">Libro Mayor XLSX Agrupado</field>
+        <field name="model">report_general_ledger</field>
+        <field name="type">ir.actions.report</field>
+        <field name="report_name">a_f_r.report_general_ledger_xlsx_grouped</field>
+        <field name="report_type">xlsx</field>
+        <field name="report_file">report_general_ledger</field>
+    </record>
+
 </data>
 
 </odoo>

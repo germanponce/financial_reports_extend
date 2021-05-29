@@ -27,6 +27,7 @@ Modificaciones de Reportes Contables.
     "data": [
         # 'reports/report_account.xml',
         'account.xml',
+        # 'security/ir.model.access.csv',
     ],
     "demo": [
     ],
