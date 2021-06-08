@@ -965,16 +965,28 @@ class AccountingReport(models.TransientModel):
                     #### Saltos de Columna ########
                     if line_type == 'report':
                         sheet.write(desc_i+str(i), name, format_header_border_bg_left_yll)
-                        sheet.write(periodo_i+str(i), initial_balance, format_header_border_bg_right_yll)
-                        sheet.write(percent_01_i+str(i), percentage_period, format_header_border_bg_center_yll_percent)
-                        sheet.write(acum_i+str(i), line_balance, format_header_border_bg_right_yll)
-                        sheet.write(percent_02_i+str(i), percentage_acum, format_header_border_bg_center_yll_percent)
+                        sheet.write(acum_i+str(i), initial_balance, format_header_border_bg_right_yll)
+                        sheet.write(percent_02_i+str(i), percentage_period, format_header_border_bg_center_yll_percent)
+                        sheet.write(periodo_i+str(i), line_balance, format_header_border_bg_right_yll)
+                        sheet.write(percent_01_i+str(i), percentage_acum, format_header_border_bg_center_yll_percent)
+
+                        # sheet.write(periodo_i+str(i), initial_balance, format_header_border_bg_right_yll)
+                        # sheet.write(periodo_i+str(i), initial_balance, format_header_border_bg_right_yll)
+                        # sheet.write(percent_01_i+str(i), percentage_period, format_header_border_bg_center_yll_percent)
+                        # sheet.write(acum_i+str(i), line_balance, format_header_border_bg_right_yll)
+                        # sheet.write(percent_02_i+str(i), percentage_acum, format_header_border_bg_center_yll_percent)
                     else:
                         sheet.write(desc_i+str(i), name, format_header_border_bg_left)
-                        sheet.write(periodo_i+str(i), initial_balance, format_header_border_bg_right)
-                        sheet.write(percent_01_i+str(i), percentage_period, format_header_border_bg_center_percent)
-                        sheet.write(acum_i+str(i), line_balance, format_header_border_bg_right)
-                        sheet.write(percent_02_i+str(i), percentage_acum, format_header_border_bg_center_percent)
+                        sheet.write(acum_i+str(i), initial_balance, format_header_border_bg_right)
+                        sheet.write(percent_02_i+str(i), percentage_period, format_header_border_bg_center_percent)
+                        sheet.write(periodo_i+str(i), line_balance, format_header_border_bg_right)
+                        sheet.write(percent_01_i+str(i), percentage_acum, format_header_border_bg_center_percent)
+
+                        # sheet.write(periodo_i+str(i), initial_balance, format_header_border_bg_right)
+                        # sheet.write(percent_01_i+str(i), percentage_period, format_header_border_bg_center_percent)
+                        # sheet.write(acum_i+str(i), line_balance, format_header_border_bg_right)
+                        # sheet.write(percent_02_i+str(i), percentage_acum, format_header_border_bg_center_percent)
+
 
                     #### Fin de Saltos de C.#######
 #                        sheet1.write(row, 2, self.env.user.company_id.currency_id.symbol, left)
@@ -983,16 +995,27 @@ class AccountingReport(models.TransientModel):
                 elif each['report_side'] == 'right':
                     if line_type == 'report':
                         sheet.write(desc_i+str(i), name, format_header_border_bg_left_yll)
-                        sheet.write(periodo_i+str(i), initial_balance, format_header_border_bg_right_yll)
-                        sheet.write(percent_01_i+str(i), percentage_period, format_header_border_bg_center_yll_percent)
-                        sheet.write(acum_i+str(i), line_balance, format_header_border_bg_right_yll)
-                        sheet.write(percent_02_i+str(i), percentage_acum, format_header_border_bg_center_yll_percent)
+                        sheet.write(acum_i+str(i), initial_balance, format_header_border_bg_right_yll)
+                        sheet.write(percent_02_i+str(i), percentage_period, format_header_border_bg_center_yll_percent)
+                        sheet.write(periodo_i+str(i), line_balance, format_header_border_bg_right_yll)
+                        sheet.write(percent_01_i+str(i), percentage_acum, format_header_border_bg_center_yll_percent)
+
+                        # sheet.write(periodo_i+str(i), initial_balance, format_header_border_bg_right_yll)
+                        # sheet.write(percent_01_i+str(i), percentage_period, format_header_border_bg_center_yll_percent)
+                        # sheet.write(acum_i+str(i), line_balance, format_header_border_bg_right_yll)
+                        # sheet.write(percent_02_i+str(i), percentage_acum, format_header_border_bg_center_yll_percent)
+
                     else:
                         sheet.write(desc_i+str(i), name, format_header_border_bg_left)
-                        sheet.write(periodo_i+str(i), initial_balance, format_header_border_bg_right)
-                        sheet.write(percent_01_i+str(i), percentage_period, format_header_border_bg_center_percent)
-                        sheet.write(acum_i+str(i), line_balance, format_header_border_bg_right)
-                        sheet.write(percent_02_i+str(i), percentage_acum, format_header_border_bg_center_percent)
+                        sheet.write(acum_i+str(i), initial_balance, format_header_border_bg_right)
+                        sheet.write(percent_02_i+str(i), percentage_period, format_header_border_bg_center_percent)
+                        sheet.write(periodo_i+str(i), line_balance, format_header_border_bg_right)
+                        sheet.write(percent_01_i+str(i), percentage_acum, format_header_border_bg_center_percent)
+
+                        # sheet.write(periodo_i+str(i), initial_balance, format_header_border_bg_right)
+                        # sheet.write(percent_01_i+str(i), percentage_period, format_header_border_bg_center_percent)
+                        # sheet.write(acum_i+str(i), line_balance, format_header_border_bg_right)
+                        # sheet.write(percent_02_i+str(i), percentage_acum, format_header_border_bg_center_percent)
 
                 #### Saltos de Columna ######## 
 
@@ -1157,6 +1180,7 @@ class GeneralLedgerXslxGrouped(models.AbstractModel):
     _inherit = 'report.account_financial_report.abstract_report_xlsx'
 
     def _get_report_name(self, report):
+        report_name = 'Libro Mayor'
         return self._get_report_complete_name(report, report_name)
 
     def _get_report_columns(self, report):
