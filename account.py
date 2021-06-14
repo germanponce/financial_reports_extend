@@ -1526,7 +1526,21 @@ class AbstractReportXslx(models.AbstractModel):
         account_sign = ""
         if account_id:
             account_br = self.env['account.account'].browse(account_id[0])
-            account_sign = account_br.sign if account_br else False
+            if 'cuenta_tipo' in account_br._fields:
+                cuenta_tipo = account_br.cuenta_tipo
+                if cuenta_tipo == 'D':
+                    account_sign = 1
+                elif cuenta_tipo == 'A':
+                    account_sign = -1
+            else:
+                if 'sign' in account_br._fields:
+                    account_sign = account_br.sign if account_br else False
+            # cuenta_tipo = account_br.cuenta_tipo
+            # if cuenta_tipo == 'D':
+            #     account_sign = 1
+            # elif cuenta_tipo == 'A':
+            #     account_sign = -1
+            #account_sign = account_br.sign if account_br else False
 
         # print ("### account_sign >>>>>>>>> ", account_sign)
 
