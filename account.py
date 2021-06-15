@@ -1604,10 +1604,19 @@ class AbstractReportXslx(models.AbstractModel):
         else:
             if 'account_id' in vals_read:
                 account_id = vals_read['report_account_id']
+        
         account_sign = ""
         if account_id:
             account_br = self.env['account.account'].browse(account_id[0])
-            account_sign = account_br.sign if account_br else False
+            if 'cuenta_tipo' in account_br._fields:
+                cuenta_tipo = account_br.cuenta_tipo
+                if cuenta_tipo == 'D':
+                    account_sign = 1
+                elif cuenta_tipo == 'A':
+                    account_sign = -1
+            else:
+                if 'sign' in account_br._fields:
+                    account_sign = account_br.sign if account_br else False
 
         initial_balance = vals_read.get('initial_balance',0.0)
 
