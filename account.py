@@ -1291,12 +1291,16 @@ class GeneralLedgerXslxGrouped(models.AbstractModel):
         return 5
 
     def _generate_report_content(self, workbook, report):
+        context =  self._context
+        # hide_partners
+        # print ("###### _generate_report_content >>>>>>>> ")
+        # print ("####################### context >>>>>>>> ",context)
         # For each account
         account_move_line = self.env['account.move.line']
         for account in report.account_ids:
             # Write account title
             self.write_array_title(account.code + ' - ' + account.name)
-
+            # print ("##### if not account.partner_ids >>>>>>>> ", account.partner_ids)
             if not account.partner_ids:
                 # Display array header for move lines
                 self.write_array_header()
@@ -1339,24 +1343,29 @@ class GeneralLedgerXslxGrouped(models.AbstractModel):
                                                 }
                                     }
                         grouped_lines.update(new_vals)
+                # print ("### grouped_lines >>>>>>>>>>> ", grouped_lines)
                 if grouped_lines:
                     self.write_lines_grouped(grouped_lines)
                 # print ("#### line_read >>>>>> ", line_read)
                 # self.write_line_special(line)
             else:
                 # For each partner
+                self.write_array_header()
+
+                # Display initial balance line for account
+                self.write_initial_balance_special(account)
+                grouped_lines = {}
                 for partner in account.partner_ids:
                     # Write partner title
-                    self.write_array_title(partner.name)
+                    #self.write_array_title(partner.name)
 
                     # Display array header for move lines
-                    self.write_array_header()
+                    #self.write_array_header()
 
                     # Display initial balance line for partner
-                    self.write_initial_balance_special(partner)
+                    #self.write_initial_balance_special(partner)
 
                     # Display account move lines
-                    grouped_lines = {}
                     for line in partner.move_line_ids:
                         line_read = line.read()[0]
                         line_journal = line_read['journal']
@@ -1394,16 +1403,16 @@ class GeneralLedgerXslxGrouped(models.AbstractModel):
                                                     }
                                         }
                             grouped_lines.update(new_vals)
-                    if grouped_lines:
-                        self.write_lines_grouped(grouped_lines)
-                    # print ("#### line_read >>>>>> ", line_read)
-                    # self.write_line_special(line)
+                if grouped_lines:
+                    self.write_lines_grouped(grouped_lines)
+                # print ("#### line_read >>>>>> ", line_read)
+                # self.write_line_special(line)
 
-                    # Display ending balance line for partner
-                    self.write_ending_balance_special(partner)
+                # Display ending balance line for partner
+                # self.write_ending_balance_special(partner)
 
-                    # Line break
-                    self.row_pos += 1
+                # Line break
+                self.row_pos += 1
 
             # Display ending balance line for account
             if not report.filter_partner_ids:
@@ -1508,16 +1517,17 @@ class AbstractReportXslx(models.AbstractModel):
 
 
     def write_initial_balance_special(self, my_object, label):
-        # print ("### write_initial_balance_special >>>>>>>>> ")
-        # print ("::: my_object >>>>>>>>> ", my_object)
+        print ("### write_initial_balance_special >>>>>>>>> ")
+        print ("::: my_object >>>>>>>>> ", my_object)
         vals_read = my_object.read()[0]
-        # print ("::: label >>>>>>>>> ", label)
+        print ("::: label >>>>>>>>> ", label)
         """Write a specific initial balance line on current line
         using defined columns field_initial_balance name.
 
         Columns are defined with `_get_report_columns` method.
         """
         account_id = False
+        account_br = False
         if 'account_id' in vals_read:
             account_id = vals_read['account_id']
         else:
@@ -1543,6 +1553,7 @@ class AbstractReportXslx(models.AbstractModel):
             #account_sign = account_br.sign if account_br else False
 
         # print ("### account_sign >>>>>>>>> ", account_sign)
+        # print ("### account_br >>>>>>>>> ", account_br)
 
         col_pos_label = self._get_col_pos_initial_balance_label()
         self.sheet.write(self.row_pos, col_pos_label, label, self.format_right)
@@ -1551,7 +1562,7 @@ class AbstractReportXslx(models.AbstractModel):
             # print ("######### column >>>>>>>>>>> ",column)
             if column.get('field_initial_balance'):
                 value = getattr(my_object, column['field_initial_balance'])
-                
+                # print ("############# VALUE >>>>>>>>> ", value)
                 cell_type = column.get('type', 'string')
                 if cell_type == 'string':
                     self.sheet.write_string(self.row_pos, col_pos, value or '')
