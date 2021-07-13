@@ -1617,27 +1617,40 @@ class AbstractReportXslx(models.AbstractModel):
                 if cell_type == 'string':
                     self.sheet.write_string(self.row_pos, col_pos, value or '')
                 elif cell_type == 'amount':
-                    if account_sign == 1 and col_pos == 11:
+                    if col_pos == 11:
                         self.sheet.write_number(
                             self.row_pos, col_pos, 0.0, self.format_amount
                         )
                     else:
-                        if account_sign == -1 and col_pos == 12:
-                            self.sheet.write_number(
-                                self.row_pos, col_pos, 0.0, self.format_amount
-                            )
-                        else:
-                            if col_pos == 12:
+                        if col_pos == 12:
                                 self.sheet.write_number(
                                     self.row_pos, col_pos, 0.0, self.format_amount
                                 )
-                            else:
-                                self.sheet.write_number(
-                                    self.row_pos, col_pos, float(value), self.format_amount
-                                )
-                            # self.sheet.write_number(
-                            #     self.row_pos, col_pos, float(value), self.format_amount
-                            # )
+                        else:
+                            self.sheet.write_number(
+                                self.row_pos, col_pos, float(value), self.format_amount
+                            )
+                    # if account_sign == 1 and col_pos == 11:
+                    #     self.sheet.write_number(
+                    #         self.row_pos, col_pos, 0.0, self.format_amount
+                    #     )
+                    # else:
+                    #     if account_sign == -1 and col_pos == 12:
+                    #         self.sheet.write_number(
+                    #             self.row_pos, col_pos, 0.0, self.format_amount
+                    #         )
+                    #     else:
+                    #         if col_pos == 12:
+                    #             self.sheet.write_number(
+                    #                 self.row_pos, col_pos, 0.0, self.format_amount
+                    #             )
+                    #         else:
+                    #             self.sheet.write_number(
+                    #                 self.row_pos, col_pos, float(value), self.format_amount
+                    #             )
+                    #         # self.sheet.write_number(
+                    #         #     self.row_pos, col_pos, float(value), self.format_amount
+                    #         # )
                 elif cell_type == 'amount_currency':
                     if my_object.currency_id:
                         format_amt = self._get_currency_amt_format(
