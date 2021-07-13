@@ -184,14 +184,15 @@ class AccountingReport(models.TransientModel):
                             })
 
         format_period_title.set_font_size(18)
-        format_period_title.set_bottom(2)
-        format_period_title.set_top(2)
+        format_period_title.set_border(1)
+        # format_period_title.set_bottom(2)
+        # format_period_title.set_top(2)
 
         format_bold_border = workbook.add_format({'bold': True, 'valign':   'vcenter'})
         format_bold_border.set_border(2)
 
         format_bold_border_tit_gray = workbook.add_format({'bold': True, 'valign':   'vcenter'})
-        format_bold_border_tit_gray.set_border(2)
+        format_bold_border_tit_gray.set_border(1)
         format_bold_border_tit_gray.set_bg_color(bg_gray)
 
         f_wh_detail_save = workbook.add_format({'bold': True, 'valign':   'vcenter',  'align':   'center'})
@@ -211,7 +212,7 @@ class AccountingReport(models.TransientModel):
         f_blue_detail_save_center.set_bg_color("#3465a4")
 
         format_bold_border2 = workbook.add_format({'bold': True, 'valign':   'vcenter', 'align':   'center'})
-        format_bold_border2.set_border(2)
+        format_bold_border2.set_border(1)
 
         format_bold_border_bg_yllw = workbook.add_format({'bold': True, 'valign':   'vcenter', 'align':   'center'})
         format_bold_border_bg_yllw.set_border(2)
@@ -232,11 +233,11 @@ class AccountingReport(models.TransientModel):
         format_header_border_bg.set_border(4)
         format_header_border_bg.set_font_size(12)
 
-        format_header_border_bg_left = workbook.add_format({'bold': True, 'valign':   'vcenter', 'align':   'left', 'text_wrap': True})
+        format_header_border_bg_left = workbook.add_format({'valign':   'vcenter', 'align':   'left', 'text_wrap': True})
         format_header_border_bg_left.set_border(4)
         format_header_border_bg_left.set_font_size(12)
 
-        format_header_border_bg_right = workbook.add_format({'bold': True, 'valign':   'vcenter', 'align':   'right', 'text_wrap': True, 'num_format': '$ #,##0.00'})
+        format_header_border_bg_right = workbook.add_format({ 'valign':   'vcenter', 'align':   'right', 'text_wrap': True, 'num_format': '$ #,##0.00'})
         format_header_border_bg_right.set_border(4)
         format_header_border_bg_right.set_font_size(12)
 
@@ -294,48 +295,49 @@ class AccountingReport(models.TransientModel):
 
         ################### CABECERA DEL REPORTE ###############
         sheet.insert_image('A1', image_module_path, {'x_scale': 0.1, 'y_scale': 0.1})
-        sheet.write('F3','COMPAÑIA:',format_bold_border_tit_gray)
-        sheet.write('F4','RFC:',format_bold_border_tit_gray)
-        sheet.write('F5','FECHA:',format_bold_border_tit_gray)
+        sheet.write('D2','COMPAÑIA:',format_bold_border_tit_gray)
+        sheet.write('D3','RFC:',format_bold_border_tit_gray)
+        sheet.write('D4','FECHA:',format_bold_border_tit_gray)
 
-        sheet.write('F6','MOVS. DESTINO:',format_bold_border_tit_gray)
+        sheet.write('D5','MOVS. DESTINO:',format_bold_border_tit_gray)
 
-        sheet.merge_range('G3:H3',self.env.user.company_id.name,format_bold_border2)
-        sheet.merge_range('G4:H4',self.env.user.company_id.vat,format_bold_border2)
+        sheet.merge_range('E2:F2',self.env.user.company_id.name,format_bold_border2)
+        sheet.merge_range('E3:F3',self.env.user.company_id.vat,format_bold_border2)
         
         fecha_creacion = convert_date_to_MX(str(fields.Date.today()))
         if self.date_from:
-            sheet.write('F7','PERIODO:',format_bold_border_tit_gray)
+            sheet.write('D6','PERIODO:',format_bold_border_tit_gray)
             date_from_c = convert_date_to_MX(str(date_from))
             if not self.date_to:
                 date_to_c = fecha_creacion
             else:
                 date_to_c = convert_date_to_MX(str(date_to))
-            sheet.merge_range('G7:H7', date_from_c+' A '+date_to_c, format_bold_border2)
+            sheet.write('E6:F6', date_from_c+' A '+date_to_c, format_bold_border2)
+        sheet.merge_range('E4:F4',fecha_creacion,format_bold_border2)
         # # sheet.merge_range('G4:H4',format_bold_border2)
 
-        sheet.merge_range('G5:H5',fecha_creacion,format_bold_border2)
+        
         target_move = ""
         if data['form']['target_move'] == 'all':
             target_move =  "Todas las Entradas"
         if data['form']['target_move'] == 'posted':
             target_move =  "Todas las Entradas Asentadas"
 
-        sheet.merge_range('G6:H6',target_move,format_bold_border2)
+        sheet.merge_range('E5:F5',target_move,format_bold_border2)
 
         # sheet.merge_range('G6:H6',str(fecha_creacion),format_bold_border_bg_gray)
         # sheet.merge_range('G7:H7', date_from+' al ' +date_to,format_bold_border_bg_yllw)
         # sheet.merge_range('G8:H8', department.name,format_bold_border2)
-        sheet.set_column('A:A', 40)
+        sheet.set_column('A:A', 45)
         sheet.set_column('B:B', 20)
 
-        sheet.set_column('D:D', 40)
+        sheet.set_column('D:D', 45)
         sheet.set_column('E:E', 20)
 
         sheet.set_column('F:F', 20)
         sheet.set_column('G:H', 17)
 
-        sheet.merge_range('B4:D6', report_name.upper(), format_period_title)
+        sheet.merge_range('A7:F8', report_name.upper(), format_period_title)
         i = 10
         letra_i = 1
         detail_start_data = i+1
@@ -377,12 +379,24 @@ class AccountingReport(models.TransientModel):
         total_general = 0.0
         #### Fin de Saltos de C.#######
         for each in report_lines:
+            ###### Estilos Dinamicos ######
+            format_header_border_bg_lft_yll_dyn = workbook.add_format({'bold': True, 'valign':   'vcenter', 'align':   'left', 'text_wrap': True, 'num_format': '$ #,##0.00'})
+            format_header_border_bg_lft_yll_dyn.set_border(4)
+            format_header_border_bg_lft_yll_dyn.set_bg_color("#f7f4be")
+            format_header_border_bg_lft_yll_dyn.set_font_size(12)
+
+            format_header_border_bg_left_dyn = workbook.add_format({ 'valign':   'vcenter', 'align':   'left', 'text_wrap': True})
+            format_header_border_bg_left_dyn.set_border(4)
+            format_header_border_bg_left_dyn.set_font_size(12)
+
             #### Saltos de Columna ######## 
             each_level = each['level']
             #### Fin de Saltos de C.#######
             if each['level'] != 0:
                 # #### Saltos de Columna ######## 
                 if each_level == 1:
+                    format_header_border_bg_lft_yll_dyn.set_indent(0)
+                    format_header_border_bg_left_dyn.set_indent(0)
                     prev_indexsum = 1
                     if count_level_11 > 0:
                         i = initial_index
@@ -390,6 +404,9 @@ class AccountingReport(models.TransientModel):
 
                 else:
                     prev_indexsum += 1
+                    ### Indentation ####                    
+                    format_header_border_bg_lft_yll_dyn.set_indent(each_level)
+                    format_header_border_bg_left_dyn.set_indent(each_level)
 
                 # #### Fin de Saltos de C.#######
 
@@ -403,10 +420,10 @@ class AccountingReport(models.TransientModel):
                 if each['report_side'] != 'right':
                     #### Saltos de Columna ########
                     if line_type == 'report':
-                        sheet.write(letra_c+str(i), name, format_header_border_bg_left_yll)
+                        sheet.write(letra_c+str(i), name, format_header_border_bg_lft_yll_dyn)
                         sheet.write(letra_c_02+str(i), each['balance'], format_header_border_bg_right_yll)
                     else:
-                        sheet.write(letra_c+str(i), name, format_header_border_bg_left)
+                        sheet.write(letra_c+str(i), name, format_header_border_bg_left_dyn)
                         sheet.write(letra_c_02+str(i), each['balance'], format_header_border_bg_right)
                     #### Fin de Saltos de C.#######
 #                        sheet1.write(row, 2, self.env.user.company_id.currency_id.symbol, left)
@@ -414,10 +431,10 @@ class AccountingReport(models.TransientModel):
                         total_left += each['balance']
                 elif each['report_side'] == 'right':
                     if line_type == 'report':
-                        sheet.write(letra_c+str(i), name, format_header_border_bg_left_yll)
+                        sheet.write(letra_c+str(i), name, format_header_border_bg_lft_yll_dyn)
                         sheet.write(letra_c_02+str(i), each['balance'], format_header_border_bg_right_yll)
                     else:
-                        sheet.write(letra_c+str(i), name, format_header_border_bg_left)
+                        sheet.write(letra_c+str(i), name, format_header_border_bg_left_dyn)
                         sheet.write(letra_c_02+str(i), each['balance'], format_header_border_bg_right)
                     
                 #### Saltos de Columna ######## 
@@ -434,8 +451,9 @@ class AccountingReport(models.TransientModel):
         # #### Saltos de Columna ######## 
         last_sum_index += 1
         total_i = initial_index + last_sum_index
-        sheet.write('A'+str(total_i), 'Total', format_header_border_bg_left_gray)
-        sheet.write('B'+str(total_i), total_general, format_header_border_bg_right)
+        ### Por el momento no sacamos el Total ####
+        # sheet.write('A'+str(total_i), 'Total', format_header_border_bg_left_gray)
+        # sheet.write('B'+str(total_i), total_general, format_header_border_bg_right)
 
         #### Fin de Saltos de C.#######
 
@@ -716,14 +734,15 @@ class AccountingReport(models.TransientModel):
                             })
 
         format_period_title.set_font_size(18)
-        format_period_title.set_bottom(2)
-        format_period_title.set_top(2)
+        format_period_title.set_border(1)
+        # format_period_title.set_bottom(2)
+        # format_period_title.set_top(2)
 
         format_bold_border = workbook.add_format({'bold': True, 'valign':   'vcenter'})
         format_bold_border.set_border(2)
 
         format_bold_border_tit_gray = workbook.add_format({'bold': True, 'valign':   'vcenter'})
-        format_bold_border_tit_gray.set_border(2)
+        format_bold_border_tit_gray.set_border(1)
         format_bold_border_tit_gray.set_bg_color(bg_gray)
 
         f_wh_detail_save = workbook.add_format({'bold': True, 'valign':   'vcenter',  'align':   'center'})
@@ -743,7 +762,7 @@ class AccountingReport(models.TransientModel):
         f_blue_detail_save_center.set_bg_color("#3465a4")
 
         format_bold_border2 = workbook.add_format({'bold': True, 'valign':   'vcenter', 'align':   'center'})
-        format_bold_border2.set_border(2)
+        format_bold_border2.set_border(1)
 
         format_bold_border_bg_yllw = workbook.add_format({'bold': True, 'valign':   'vcenter', 'align':   'center'})
         format_bold_border_bg_yllw.set_border(2)
@@ -764,15 +783,15 @@ class AccountingReport(models.TransientModel):
         format_header_border_bg.set_border(4)
         format_header_border_bg.set_font_size(12)
 
-        format_header_border_bg_left = workbook.add_format({'bold': True, 'valign':   'vcenter', 'align':   'left', 'text_wrap': True})
+        format_header_border_bg_left = workbook.add_format({'valign':   'vcenter', 'align':   'left', 'text_wrap': True})
         format_header_border_bg_left.set_border(4)
         format_header_border_bg_left.set_font_size(12)
 
-        format_header_border_bg_right = workbook.add_format({'bold': True, 'valign':   'vcenter', 'align':   'right', 'text_wrap': True, 'num_format': '$ #,##0.00'})
+        format_header_border_bg_right = workbook.add_format({'valign':   'vcenter', 'align':   'right', 'text_wrap': True, 'num_format': '$ #,##0.00'})
         format_header_border_bg_right.set_border(4)
         format_header_border_bg_right.set_font_size(12)
 
-        format_header_border_bg_center_percent = workbook.add_format({'bold': True, 'valign':   'vcenter', 'align':   'center', 'text_wrap': True, 'num_format': percent_format})
+        format_header_border_bg_center_percent = workbook.add_format({'valign':   'vcenter', 'align':   'center', 'text_wrap': True, 'num_format': percent_format})
         format_header_border_bg_center_percent.set_border(4)
         format_header_border_bg_center_percent.set_font_size(12)
 
@@ -835,48 +854,50 @@ class AccountingReport(models.TransientModel):
 
         ################### CABECERA DEL REPORTE ###############
         sheet.insert_image('A1', image_module_path, {'x_scale': 0.1, 'y_scale': 0.1})
-        sheet.write('F3','COMPAÑIA:',format_bold_border_tit_gray)
-        sheet.write('F4','RFC:',format_bold_border_tit_gray)
-        sheet.write('F5','FECHA:',format_bold_border_tit_gray)
+        sheet.write('D2','COMPAÑIA:',format_bold_border_tit_gray)
+        sheet.write('D3','RFC:',format_bold_border_tit_gray)
+        sheet.write('D4','FECHA:',format_bold_border_tit_gray)
 
-        sheet.write('F6','MOVS. DESTINO:',format_bold_border_tit_gray)
+        sheet.write('D5','MOVS. DESTINO:',format_bold_border_tit_gray)
 
-        sheet.merge_range('G3:H3',self.env.user.company_id.name,format_bold_border2)
-        sheet.merge_range('G4:H4',self.env.user.company_id.vat,format_bold_border2)
+        sheet.write('E2',self.env.user.company_id.name,format_bold_border2)
+        sheet.write('E3',self.env.user.company_id.vat,format_bold_border2)
         fecha_creacion = convert_date_to_MX(str(fields.Date.today()))
         if self.date_from :
-            sheet.write('F7','PERIODO:',format_bold_border_tit_gray)
+            sheet.write('D6','PERIODO:',format_bold_border_tit_gray)
             date_from_c = convert_date_to_MX(str(date_from))
             if not self.date_to:
                 date_to_c = fecha_creacion
             else:
                 date_to_c = convert_date_to_MX(str(date_to))
-            sheet.merge_range('G7:H7', date_from_c+' A '+date_to_c, format_bold_border2)
+            sheet.write('E6', date_from_c+' A '+date_to_c, format_bold_border2)
+
+        sheet.write('E4',fecha_creacion,format_bold_border2)
         # # sheet.merge_range('G4:H4',format_bold_border2)
 
-        sheet.merge_range('G5:H5',fecha_creacion,format_bold_border2)
+        
         target_move = ""
         if data['form']['target_move'] == 'all':
             target_move =  "Todas las Entradas"
         if data['form']['target_move'] == 'posted':
             target_move =  "Todas las Entradas Asentadas"
 
-        sheet.merge_range('G6:H6',target_move,format_bold_border2)
+        sheet.write('E5',target_move,format_bold_border2)
 
         # sheet.merge_range('G6:H6',str(fecha_creacion),format_bold_border_bg_gray)
         # sheet.merge_range('G7:H7', date_from+' al ' +date_to,format_bold_border_bg_yllw)
         # sheet.merge_range('G8:H8', department.name,format_bold_border2)
-        sheet.set_column('A:A', 40)
+        sheet.set_column('A:A', 50)
         sheet.set_column('B:B', 20)
         sheet.set_column('C:C', 20)
 
         sheet.set_column('D:D', 40)
-        sheet.set_column('E:E', 20)
+        sheet.set_column('E:E', 40)
 
         sheet.set_column('F:F', 20)
         sheet.set_column('G:H', 17)
 
-        sheet.merge_range('B4:D6', report_name.upper(), format_period_title)
+        sheet.merge_range('A8:E9', report_name.upper(), format_period_title)
         i = 10
         desc_i = 'A'
         periodo_i = 'B'
@@ -910,11 +931,27 @@ class AccountingReport(models.TransientModel):
         for each in report_lines:
             #### Saltos de Columna ######## 
             each_level = each['level']
+            ###### Estilos Dinamicos ######
+            format_header_border_bg_lft_yll_dyn = workbook.add_format({'bold': True, 'valign':   'vcenter', 'align':   'left', 'text_wrap': True, 'num_format': '$ #,##0.00'})
+            format_header_border_bg_lft_yll_dyn.set_border(4)
+            format_header_border_bg_lft_yll_dyn.set_bg_color("#f7f4be")
+            format_header_border_bg_lft_yll_dyn.set_font_size(12)
+
+            format_header_border_bg_left_dyn = workbook.add_format({'valign':   'vcenter', 'align':   'left', 'text_wrap': True})
+            format_header_border_bg_left_dyn.set_border(4)
+            format_header_border_bg_left_dyn.set_font_size(12)
+            
             #### Fin de Saltos de C.#######
             if each['level'] != 0:
                 name = ""
                 gap = " "
                 name = each['name']
+                if each_level == 1:
+                    format_header_border_bg_lft_yll_dyn.set_indent(0)
+                    format_header_border_bg_left_dyn.set_indent(0) 
+                else:
+                    format_header_border_bg_lft_yll_dyn.set_indent(each_level)
+                    format_header_border_bg_left_dyn.set_indent(each_level)
 
                 ### PRUEBA DEL BALANCE - CALCULANDOLO MANUALMENTE ##
                 # account_ids = []
@@ -964,7 +1001,7 @@ class AccountingReport(models.TransientModel):
                 if each['report_side'] != 'right':
                     #### Saltos de Columna ########
                     if line_type == 'report':
-                        sheet.write(desc_i+str(i), name, format_header_border_bg_left_yll)
+                        sheet.write(desc_i+str(i), name, format_header_border_bg_lft_yll_dyn)
                         sheet.write(acum_i+str(i), initial_balance, format_header_border_bg_right_yll)
                         sheet.write(percent_02_i+str(i), percentage_period, format_header_border_bg_center_yll_percent)
                         sheet.write(periodo_i+str(i), line_balance, format_header_border_bg_right_yll)
@@ -976,7 +1013,7 @@ class AccountingReport(models.TransientModel):
                         # sheet.write(acum_i+str(i), line_balance, format_header_border_bg_right_yll)
                         # sheet.write(percent_02_i+str(i), percentage_acum, format_header_border_bg_center_yll_percent)
                     else:
-                        sheet.write(desc_i+str(i), name, format_header_border_bg_left)
+                        sheet.write(desc_i+str(i), name, format_header_border_bg_left_dyn)
                         sheet.write(acum_i+str(i), initial_balance, format_header_border_bg_right)
                         sheet.write(percent_02_i+str(i), percentage_period, format_header_border_bg_center_percent)
                         sheet.write(periodo_i+str(i), line_balance, format_header_border_bg_right)
@@ -994,7 +1031,7 @@ class AccountingReport(models.TransientModel):
                         total_left += each['balance']
                 elif each['report_side'] == 'right':
                     if line_type == 'report':
-                        sheet.write(desc_i+str(i), name, format_header_border_bg_left_yll)
+                        sheet.write(desc_i+str(i), name, format_header_border_bg_lft_yll_dyn)
                         sheet.write(acum_i+str(i), initial_balance, format_header_border_bg_right_yll)
                         sheet.write(percent_02_i+str(i), percentage_period, format_header_border_bg_center_yll_percent)
                         sheet.write(periodo_i+str(i), line_balance, format_header_border_bg_right_yll)
@@ -1006,7 +1043,7 @@ class AccountingReport(models.TransientModel):
                         # sheet.write(percent_02_i+str(i), percentage_acum, format_header_border_bg_center_yll_percent)
 
                     else:
-                        sheet.write(desc_i+str(i), name, format_header_border_bg_left)
+                        sheet.write(desc_i+str(i), name, format_header_border_bg_left_dyn)
                         sheet.write(acum_i+str(i), initial_balance, format_header_border_bg_right)
                         sheet.write(percent_02_i+str(i), percentage_period, format_header_border_bg_center_percent)
                         sheet.write(periodo_i+str(i), line_balance, format_header_border_bg_right)
@@ -1026,9 +1063,10 @@ class AccountingReport(models.TransientModel):
                     total_general = each['balance']
 
         # #### Saltos de Columna ######## 
-        i+=1
-        sheet.write('A'+str(i), 'Total', format_header_border_bg_left_gray)
-        sheet.write('B'+str(i), total_general, format_header_border_bg_right)
+        ### De momento sin Total ####
+        # i+=1
+        # sheet.write('A'+str(i), 'Total', format_header_border_bg_left_gray)
+        # sheet.write('B'+str(i), total_general, format_header_border_bg_right)
 
         #### Fin de Saltos de C.#######
 
@@ -1301,53 +1339,57 @@ class GeneralLedgerXslxGrouped(models.AbstractModel):
             # Write account title
             self.write_array_title(account.code + ' - ' + account.name)
             # print ("##### if not account.partner_ids >>>>>>>> ", account.partner_ids)
+            ending_balance_vals_summatory = {
+                                             10: 0.0,# initial_balance,
+                                             11: 0.0, # debit',
+                                             12: 0.0, # credit',
+                                             13: 0.0, # cumul_balance',
+                                            }
+            account_read = account.read()[0]
+            sum_initial_balance = account_read.get('field_initial_balance')
+            sum_debit = 0.0
+            sum_credit = 0.0
+            sum_cumul_balance = account_read.get('cumul_balance')
             if not account.partner_ids:
                 # Display array header for move lines
                 self.write_array_header()
 
                 # Display initial balance line for account
                 self.write_initial_balance_special(account)
-
                 # Display account move lines
                 grouped_lines = {}
                 for line in account.move_line_ids:
                     line_read = line.read()[0]
                     line_journal = line_read['journal']
                     line_account = line_read.get('report_account_id','')
+
                     line_debit = line_read.get('debit', 0.0)
                     line_credit = line_read.get('credit', 0.0)
                     line_cumul_balance = line_read.get('cumul_balance', 0.0)
+                    ### Sumatorias ###
+                    sum_debit += float(line_debit)
+                    sum_credit += float(line_credit)
 
-                    if line_journal not in grouped_lines:
-                        vals = {line_journal:{
-                            3: line_account,
-                            11: line_debit,
-                            12: line_credit,
-                            13: line_cumul_balance,
-                        }
-                        }
-                        grouped_lines.update(vals)
-                    else:
-                        prev_vals = grouped_lines[line_journal]
-                        new_vals = {}
-                        line_account = prev_vals[3]
-                        prev_debit = prev_vals[11]
-                        prev_credit = prev_vals[12]
-                        prev_cumul_balance = prev_vals[13]
-                        new_vals = {
-                                    line_journal:{
-                                        3: line_account,
-                                        11: prev_debit + line_debit,
-                                        12: prev_credit + line_credit,
-                                        13: line_cumul_balance,
-                                                }
-                                    }
-                        grouped_lines.update(new_vals)
-                # print ("### grouped_lines >>>>>>>>>>> ", grouped_lines)
+                    vals = {line:{
+                        0: line_read['date'],
+                        1: line_read['entry'],
+                        2: line_read['journal'],
+                        3: line_read['account'],
+                        4: line_read['taxes_description'],
+                        5: line_read['partner'],
+                        6: line_read['label'],
+                        7: line_read['cost_center'],
+                        8: line_read['tags'],
+                        9: line_read['matching_number'],
+                        11: line_debit,
+                        12: line_credit,
+                        13: line_cumul_balance,
+                    }
+                    }
+                    grouped_lines.update(vals)
+                    
                 if grouped_lines:
                     self.write_lines_grouped(grouped_lines)
-                # print ("#### line_read >>>>>> ", line_read)
-                # self.write_line_special(line)
             else:
                 # For each partner
                 self.write_array_header()
@@ -1375,34 +1417,30 @@ class GeneralLedgerXslxGrouped(models.AbstractModel):
                             acmv_line = account_move_line.browse(move_line_id[0])
                             line_account = acmv_line.account_id.name_get()[0][1]
                         line_debit = line_read.get('debit', 0.0)
-                        line_credit = line_read.get('credit', 0.0)
+                        line_credit = line_read.get('credit', 0.0)                       
                         line_cumul_balance = line_read.get('cumul_balance', 0.0)
+                        ### Sumatorias ###
+                        sum_debit += float(line_debit)
+                        sum_credit += float(line_credit)
 
-                        if line_journal not in grouped_lines:
-                            vals = {line_journal:{
-                                3: line_account,
-                                11: line_debit,
-                                12: line_credit,
-                                13: line_cumul_balance,
-                            }
-                            }
-                            grouped_lines.update(vals)
-                        else:
-                            prev_vals = grouped_lines[line_journal]
-                            new_vals = {}
-                            line_account = prev_vals[3]
-                            prev_debit = prev_vals[11]
-                            prev_credit = prev_vals[12]
-                            prev_cumul_balance = prev_vals[13]
-                            new_vals = {
-                                        line_journal:{
-                                            3: line_account,
-                                            11: prev_debit + line_debit,
-                                            12: prev_credit + line_credit,
-                                            13: line_cumul_balance,
-                                                    }
-                                        }
-                            grouped_lines.update(new_vals)
+                        
+                        vals = {line:{
+                            0: line_read['date'],
+                            1: line_read['entry'],
+                            2: line_read['journal'],
+                            3: line_read['account'],
+                            4: line_read['taxes_description'],
+                            5: line_read['partner'],
+                            6: line_read['label'],
+                            7: line_read['cost_center'],
+                            8: line_read['tags'],
+                            9: line_read['matching_number'],
+                            11: line_debit,
+                            12: line_credit,
+                            13: line_cumul_balance,
+                        }
+                        }
+                        grouped_lines.update(vals)
                 if grouped_lines:
                     self.write_lines_grouped(grouped_lines)
                 # print ("#### line_read >>>>>> ", line_read)
@@ -1415,8 +1453,15 @@ class GeneralLedgerXslxGrouped(models.AbstractModel):
                 self.row_pos += 1
 
             # Display ending balance line for account
+            ending_balance_vals_summatory = [{
+                                             10: sum_initial_balance,# initial_balance,
+                                             11: sum_debit, # debit',
+                                             12: sum_credit, # credit',
+                                             13: sum_cumul_balance, # cumul_balance',
+                                            }]
+
             if not report.filter_partner_ids:
-                self.write_ending_balance_special(account)
+                self.write_ending_balance_special(account, ending_balance_vals_summatory)
 
             # 2 lines break
             self.row_pos += 2
@@ -1432,7 +1477,7 @@ class GeneralLedgerXslxGrouped(models.AbstractModel):
             my_object, label
         )
 
-    def write_ending_balance_special(self, my_object):
+    def write_ending_balance_special(self, my_object, list_summ):
         """Specific function to write ending balance for General Ledger"""
         if 'partner' in my_object._name:
             name = my_object.name
@@ -1441,7 +1486,7 @@ class GeneralLedgerXslxGrouped(models.AbstractModel):
             name = my_object.code + ' - ' + my_object.name
             label = _('Ending balance')
         super(GeneralLedgerXslxGrouped, self).write_ending_balance_special(
-            my_object, name, label
+            my_object, name, label, list_summ
         )
 
 class AbstractReportXslx(models.AbstractModel):
@@ -1450,26 +1495,31 @@ class AbstractReportXslx(models.AbstractModel):
     def write_lines_grouped(self, lines_dict):
 
         for line in lines_dict:
-            journal = line
-            vals = lines_dict.get(journal)
-
+            vals = lines_dict.get(line)
             columns = vals.keys()
-            # Fecha #
-            self.sheet.write_string(self.row_pos, 0, '')
-            # Diario #
-            self.sheet.write_string(self.row_pos, 2, journal)
+            # # Fecha #
+            # self.sheet.write_string(self.row_pos, 0, '')
+            # # Diario #
+            # self.sheet.write_string(self.row_pos, 2, journal)
+
             for col_pos in columns:
                 value = vals[col_pos]
-                if col_pos == 3:
-                    account_name = value[1]
-                    self.sheet.write_string(self.row_pos, col_pos, account_name)
+                if value:
+                    if col_pos in (0,1,2,3,4,5,6,7,8,9):
+                        self.sheet.write_string(self.row_pos, col_pos, value)
+                    else:
+                        cell_format = self.format_amount
+                        self.sheet.write_number(
+                            self.row_pos, col_pos, float(value), cell_format
+                        )
                 else:
-                    cell_format = self.format_amount
-                    self.sheet.write_number(
-                        self.row_pos, col_pos, float(value), cell_format
-                    )
+                    if col_pos in (11,12,13):
+                        cell_format = self.format_amount
+                        self.sheet.write_number(
+                            self.row_pos, col_pos, float(0.0), cell_format
+                        )
 
-        self.row_pos += 1
+            self.row_pos += 1
 
     def write_line_special(self, line_object):
         # print ("######### write_line_special >>>>>>>>>>>>>>>> ")
@@ -1517,10 +1567,10 @@ class AbstractReportXslx(models.AbstractModel):
 
 
     def write_initial_balance_special(self, my_object, label):
-        print ("### write_initial_balance_special >>>>>>>>> ")
-        print ("::: my_object >>>>>>>>> ", my_object)
+        # print ("### write_initial_balance_special >>>>>>>>> ")
+        # print ("::: my_object >>>>>>>>> ", my_object)
         vals_read = my_object.read()[0]
-        print ("::: label >>>>>>>>> ", label)
+        # print ("::: label >>>>>>>>> ", label)
         """Write a specific initial balance line on current line
         using defined columns field_initial_balance name.
 
@@ -1577,9 +1627,17 @@ class AbstractReportXslx(models.AbstractModel):
                                 self.row_pos, col_pos, 0.0, self.format_amount
                             )
                         else:
-                            self.sheet.write_number(
-                                self.row_pos, col_pos, float(value), self.format_amount
-                            )
+                            if col_pos == 12:
+                                self.sheet.write_number(
+                                    self.row_pos, col_pos, 0.0, self.format_amount
+                                )
+                            else:
+                                self.sheet.write_number(
+                                    self.row_pos, col_pos, float(value), self.format_amount
+                                )
+                            # self.sheet.write_number(
+                            #     self.row_pos, col_pos, float(value), self.format_amount
+                            # )
                 elif cell_type == 'amount_currency':
                     if my_object.currency_id:
                         format_amt = self._get_currency_amt_format(
@@ -1600,13 +1658,14 @@ class AbstractReportXslx(models.AbstractModel):
                         )
         self.row_pos += 1
 
-    def write_ending_balance_special(self, my_object, name, label):
+    def write_ending_balance_special(self, my_object, name, label, list_summ):
 
         """Write a specific ending balance line on current line
         using defined columns field_final_balance name.
 
         Columns are defined with `_get_report_columns` method.
         """
+        ending_balance_vals_summatory = list_summ[0]
         vals_read = my_object.read()[0]
 
         account_id = False
@@ -1630,6 +1689,9 @@ class AbstractReportXslx(models.AbstractModel):
                     account_sign = account_br.sign if account_br else False
 
         initial_balance = vals_read.get('initial_balance',0.0)
+        sum_debit = ending_balance_vals_summatory.get(11,0.0)
+        sum_credit = ending_balance_vals_summatory.get(12,0.0)
+        sum_cumul_balance = ending_balance_vals_summatory.get(13,0.0)
 
         for i in range(0, len(self.columns)):
             self.sheet.write(self.row_pos, i, '', self.format_header_right)
@@ -1644,16 +1706,38 @@ class AbstractReportXslx(models.AbstractModel):
         for col_pos, column in self.columns.items():
             if column.get('field_final_balance'):
                 value = getattr(my_object, column['field_final_balance'])
+                
                 cell_type = column.get('type', 'string')
                 if cell_type == 'string':
                     self.sheet.write_string(self.row_pos, col_pos, value or '',
                                             self.format_header_right)
                 elif cell_type == 'amount':
-                    if col_pos == 11:
+                    # if col_pos == 11:
+                    #     self.sheet.write_number(
+                    #         self.row_pos, col_pos, float(value) - initial_balance,
+                    #         self.format_header_amount
+                    #     )
+                    if col_pos == 10:
+                        initial_value = getattr(my_object, column['field_initial_balance'])
                         self.sheet.write_number(
-                            self.row_pos, col_pos, float(value) - initial_balance,
+                            self.row_pos, col_pos, initial_value if initial_value else 0.0,
                             self.format_header_amount
                         )
+                    elif col_pos == 11:
+                        self.sheet.write_number(
+                            self.row_pos, col_pos, sum_debit if sum_debit else 0.0,
+                            self.format_header_amount
+                        )
+                    elif col_pos == 12:
+                        self.sheet.write_number(
+                            self.row_pos, col_pos, sum_credit if sum_credit else 0.0,
+                            self.format_header_amount
+                        )
+                    # if col_pos == 13:
+                    #     self.sheet.write_number(
+                    #         self.row_pos, col_pos, sum_cumul_balance if sum_cumul_balance else 0.0,
+                    #         self.format_header_amount
+                    #     )
                     else:
                         self.sheet.write_number(
                             self.row_pos, col_pos, float(value),
