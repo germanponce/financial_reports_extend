@@ -1357,7 +1357,7 @@ class GeneralLedgerXslxGrouped(models.AbstractModel):
                 # Display initial balance line for account
                 self.write_initial_balance_special(account)
                 # Display account move lines
-                grouped_lines = {}
+                grouped_lines = []
                 for line in account.move_line_ids:
                     line_read = line.read()[0]
                     line_journal = line_read['journal']
@@ -1370,23 +1370,38 @@ class GeneralLedgerXslxGrouped(models.AbstractModel):
                     sum_debit += float(line_debit)
                     sum_credit += float(line_credit)
 
-                    vals = {line:{
-                        0: line_read['date'],
-                        1: line_read['entry'],
-                        2: line_read['journal'],
-                        3: line_read['account'],
-                        4: line_read['taxes_description'],
-                        5: line_read['partner'],
-                        6: line_read['label'],
-                        7: line_read['cost_center'],
-                        8: line_read['tags'],
-                        9: line_read['matching_number'],
-                        11: line_debit,
-                        12: line_credit,
-                        13: line_cumul_balance,
-                    }
-                    }
-                    grouped_lines.update(vals)
+                    # vals = {line:{
+                    #     0: line_read['date'],
+                    #     1: line_read['entry'],
+                    #     2: line_read['journal'],
+                    #     3: line_read['account'],
+                    #     4: line_read['taxes_description'],
+                    #     5: line_read['partner'],
+                    #     6: line_read['label'],
+                    #     7: line_read['cost_center'],
+                    #     8: line_read['tags'],
+                    #     9: line_read['matching_number'],
+                    #     11: line_debit,
+                    #     12: line_credit,
+                    #     13: line_cumul_balance,
+                    # }
+                    # }
+                    vals = {
+                                0: line_read['date'],
+                                1: line_read['entry'],
+                                2: line_read['journal'],
+                                3: line_read['account'],
+                                4: line_read['taxes_description'],
+                                5: line_read['partner'],
+                                6: line_read['label'],
+                                7: line_read['cost_center'],
+                                8: line_read['tags'],
+                                9: line_read['matching_number'],
+                                11: line_debit,
+                                12: line_credit,
+                                13: line_cumul_balance,
+                            }
+                    grouped_lines.append(vals)
                     
                 if grouped_lines:
                     self.write_lines_grouped(grouped_lines)
@@ -1396,7 +1411,7 @@ class GeneralLedgerXslxGrouped(models.AbstractModel):
 
                 # Display initial balance line for account
                 self.write_initial_balance_special(account)
-                grouped_lines = {}
+                grouped_lines = []
                 for partner in account.partner_ids:
                     # Write partner title
                     #self.write_array_title(partner.name)
@@ -1424,23 +1439,38 @@ class GeneralLedgerXslxGrouped(models.AbstractModel):
                         sum_credit += float(line_credit)
 
                         
-                        vals = {line:{
-                            0: line_read['date'],
-                            1: line_read['entry'],
-                            2: line_read['journal'],
-                            3: line_read['account'],
-                            4: line_read['taxes_description'],
-                            5: line_read['partner'],
-                            6: line_read['label'],
-                            7: line_read['cost_center'],
-                            8: line_read['tags'],
-                            9: line_read['matching_number'],
-                            11: line_debit,
-                            12: line_credit,
-                            13: line_cumul_balance,
-                        }
-                        }
-                        grouped_lines.update(vals)
+                        # vals = {line:{
+                        #     0: line_read['date'],
+                        #     1: line_read['entry'],
+                        #     2: line_read['journal'],
+                        #     3: line_read['account'],
+                        #     4: line_read['taxes_description'],
+                        #     5: line_read['partner'],
+                        #     6: line_read['label'],
+                        #     7: line_read['cost_center'],
+                        #     8: line_read['tags'],
+                        #     9: line_read['matching_number'],
+                        #     11: line_debit,
+                        #     12: line_credit,
+                        #     13: line_cumul_balance,
+                        # }
+                        # }
+                        vals = {
+                                    0: line_read['date'],
+                                    1: line_read['entry'],
+                                    2: line_read['journal'],
+                                    3: line_read['account'],
+                                    4: line_read['taxes_description'],
+                                    5: line_read['partner'],
+                                    6: line_read['label'],
+                                    7: line_read['cost_center'],
+                                    8: line_read['tags'],
+                                    9: line_read['matching_number'],
+                                    11: line_debit,
+                                    12: line_credit,
+                                    13: line_cumul_balance,
+                                }
+                        grouped_lines.append(vals)
                 if grouped_lines:
                     self.write_lines_grouped(grouped_lines)
                 # print ("#### line_read >>>>>> ", line_read)
@@ -1495,7 +1525,8 @@ class AbstractReportXslx(models.AbstractModel):
     def write_lines_grouped(self, lines_dict):
 
         for line in lines_dict:
-            vals = lines_dict.get(line)
+            #vals = lines_dict.get(line)
+            vals = line
             columns = vals.keys()
             # # Fecha #
             # self.sheet.write_string(self.row_pos, 0, '')
