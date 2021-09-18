@@ -501,7 +501,6 @@ class AccountingReport(models.TransientModel):
         left_parent_period_balance = 0.0
         left_parent_cumulative_balance = 0.0
         for report in child_reports:
-            print ('####### reprot ========> ',report.name)
             # print (":::::: res[report.id].get('account') >>>>>>> ", res[report.id].get('account'))
             
             parent_initial_balance = 0.0
@@ -521,7 +520,6 @@ class AccountingReport(models.TransientModel):
                 date_context_update.update({
                     'date_from': '%s-01-01' % date1.year,
                     })
-                print ("### date_context_update >>>>>>>>> ", date_context_update)
                 report_initital_balance = self.with_context(date_context_update)._compute_report_balance(child_reports)
                 parent_initial_balance = report_initital_balance[report.id]['balance'] * report.sign
                 ####### Sacando los balances de las lineas #########
@@ -1421,6 +1419,8 @@ class GeneralLedgerXslxGrouped(models.AbstractModel):
             sum_debit = 0.0
             sum_credit = 0.0
             sum_cumul_balance = account_read.get('cumul_balance')
+            date_list_groupped_vals = {}
+
             if not account.partner_ids:
                 # Display array header for move lines
                 self.write_array_header()
@@ -1457,6 +1457,7 @@ class GeneralLedgerXslxGrouped(models.AbstractModel):
                     #     13: line_cumul_balance,
                     # }
                     # }
+
                     vals = {
                                 0: line_read['date'],
                                 1: line_read['entry'],
@@ -1472,10 +1473,18 @@ class GeneralLedgerXslxGrouped(models.AbstractModel):
                                 12: line_credit,
                                 13: line_cumul_balance,
                             }
-                    grouped_lines.append(vals)
-                    
-                if grouped_lines:
-                    self.write_lines_grouped(grouped_lines)
+
+
+                    if line_read['date'] in date_list_groupped_vals:
+                        vals_from_list = date_list_groupped_vals[line_read['date']]
+                        vals_from_list.append(vals)
+                        date_list_groupped_vals[line_read['date']] = vals_from_list
+                    else:
+                        date_list_groupped_vals.update({line_read['date']: [vals] })
+
+                #     grouped_lines.append(vals)
+                # if grouped_lines:
+                #     self.write_lines_grouped(grouped_lines)
             else:
                 # For each partner
                 self.write_array_header()
@@ -1526,6 +1535,7 @@ class GeneralLedgerXslxGrouped(models.AbstractModel):
                         #     13: line_cumul_balance,
                         # }
                         # }
+
                         vals = {
                                     0: line_read['date'],
                                     1: line_read['entry'],
@@ -1541,9 +1551,16 @@ class GeneralLedgerXslxGrouped(models.AbstractModel):
                                     12: line_credit,
                                     13: line_cumul_balance,
                                 }
-                        grouped_lines.append(vals)
-                if grouped_lines:
-                    self.write_lines_grouped(grouped_lines)
+                        if line_read['date'] in date_list_groupped_vals:
+                            vals_from_list = date_list_groupped_vals[line_read['date']]
+                            vals_from_list.append(vals)
+                            date_list_groupped_vals[line_read['date']] = vals_from_list
+                        else:
+                            date_list_groupped_vals.update({line_read['date']: [vals] })
+
+                #         grouped_lines.append(vals)
+                # if grouped_lines:
+                #     self.write_lines_grouped(grouped_lines)
                 # print ("#### line_read >>>>>> ", line_read)
                 # self.write_line_special(line)
 
@@ -1551,8 +1568,9 @@ class GeneralLedgerXslxGrouped(models.AbstractModel):
                 # self.write_ending_balance_special(partner)
 
                 # Line break
-                self.row_pos += 1
-
+                # self.row_pos += 1
+            if date_list_groupped_vals:
+                self.write_lines_grouped(date_list_groupped_vals)
             # Display ending balance line for account
             ending_balance_vals_summatory = [{
                                              10: sum_initial_balance,# initial_balance,
@@ -1594,34 +1612,38 @@ class AbstractReportXslx(models.AbstractModel):
     _inherit = 'report.account_financial_report.abstract_report_xlsx'
 
     def write_lines_grouped(self, lines_dict):
+        date_list = lines_dict.keys()
+        date_list = list(set(date_list))
+        date_list.sort()
+        for date in date_list:
+            lines_read_dict = lines_dict[date]
+            for line in lines_read_dict:
+                #vals = lines_dict.get(line)
+                vals = line
+                columns = vals.keys()
+                # # Fecha #
+                # self.sheet.write_string(self.row_pos, 0, '')
+                # # Diario #
+                # self.sheet.write_string(self.row_pos, 2, journal)
 
-        for line in lines_dict:
-            #vals = lines_dict.get(line)
-            vals = line
-            columns = vals.keys()
-            # # Fecha #
-            # self.sheet.write_string(self.row_pos, 0, '')
-            # # Diario #
-            # self.sheet.write_string(self.row_pos, 2, journal)
-
-            for col_pos in columns:
-                value = vals[col_pos]
-                if value:
-                    if col_pos in (0,1,2,3,4,5,6,7,8,9):
-                        self.sheet.write_string(self.row_pos, col_pos, value)
+                for col_pos in columns:
+                    value = vals[col_pos]
+                    if value:
+                        if col_pos in (0,1,2,3,4,5,6,7,8,9):
+                            self.sheet.write_string(self.row_pos, col_pos, value)
+                        else:
+                            cell_format = self.format_amount
+                            self.sheet.write_number(
+                                self.row_pos, col_pos, float(value), cell_format
+                            )
                     else:
-                        cell_format = self.format_amount
-                        self.sheet.write_number(
-                            self.row_pos, col_pos, float(value), cell_format
-                        )
-                else:
-                    if col_pos in (11,12,13):
-                        cell_format = self.format_amount
-                        self.sheet.write_number(
-                            self.row_pos, col_pos, float(0.0), cell_format
-                        )
+                        if col_pos in (11,12,13):
+                            cell_format = self.format_amount
+                            self.sheet.write_number(
+                                self.row_pos, col_pos, float(0.0), cell_format
+                            )
 
-            self.row_pos += 1
+                self.row_pos += 1
 
     def write_line_special(self, line_object):
         # print ("######### write_line_special >>>>>>>>>>>>>>>> ")
