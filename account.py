@@ -512,13 +512,14 @@ class AccountingReport(models.TransientModel):
                 date1 = datetime.strptime(str(date_from),'%Y-%m-%d')
                 prev_day_from = date1 - timedelta(days = 1)
                 prev_day_from_str = str(prev_day_from)[0:10]
-                date_context_update.update({
-                    # 'date_from': '2019-01-01',
-                    'date_to': prev_day_from_str,
-                    })
+                # date_context_update.update({
+                #     'date_from': '2019-01-01',
+                #     'date_to': prev_day_from_str,
+                #     })
                 ### Cambiamos la Fecha Inicial de la creación de la BD por la primera del Año ###
                 date_context_update.update({
                     'date_from': '%s-01-01' % date1.year,
+                    'date_to': date_to,
                     })
                 report_initital_balance = self.with_context(date_context_update)._compute_report_balance(child_reports)
                 parent_initial_balance = report_initital_balance[report.id]['balance'] * report.sign
