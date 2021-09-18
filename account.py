@@ -497,12 +497,16 @@ class AccountingReport(models.TransientModel):
                 if report_acc:
                     for account_id, val in comparison_res[report_id].get('account').items():
                         report_acc[account_id]['comp_bal'] = val['balance']
+
+        left_parent_period_balance = 0.0
+        left_parent_cumulative_balance = 0.0
         for report in child_reports:
-            # print ('\n\n\n===========reprot====',report)
+            print ('####### reprot ========> ',report.name)
             # print (":::::: res[report.id].get('account') >>>>>>> ", res[report.id].get('account'))
             
             parent_initial_balance = 0.0
             accounts_initital_balance = {}
+            report_initital_balance_cumulative = 0.0
             parent_balance = 0.0
             if date_from:
                 date_context_update = data.get('comparison_context')
@@ -510,11 +514,15 @@ class AccountingReport(models.TransientModel):
                 prev_day_from = date1 - timedelta(days = 1)
                 prev_day_from_str = str(prev_day_from)[0:10]
                 date_context_update.update({
-                    'date_from': '2019-01-01',
+                    # 'date_from': '2019-01-01',
                     'date_to': prev_day_from_str,
                     })
+                ### Cambiamos la Fecha Inicial de la creación de la BD por la primera del Año ###
+                date_context_update.update({
+                    'date_from': '%s-01-01' % date1.year,
+                    })
+                print ("### date_context_update >>>>>>>>> ", date_context_update)
                 report_initital_balance = self.with_context(date_context_update)._compute_report_balance(child_reports)
-                # print (":::::: CALCULANDO MANUALMENTE >>>> ",report_initital_balance)
                 parent_initial_balance = report_initital_balance[report.id]['balance'] * report.sign
                 ####### Sacando los balances de las lineas #########
                 if report_initital_balance[report.id].get('account'):
@@ -535,7 +543,38 @@ class AccountingReport(models.TransientModel):
                             accounts_initital_balance.update({
                                account_id: vals_balance,
                             })
+
             parent_balance = res[report.id]['balance'] * report.sign
+
+            ### Repetimos para Poder Sacar la Sumatoria del Saldo Inicial ####
+            if res[report.id].get('account'):
+                for account_id, value in res[report.id]['account'].items():
+                    flag_tmp = False
+                    vals_tmp = {}
+                    account = self.env['account.account'].browse(account_id)
+                    initial_balance = 0.0
+                    if accounts_initital_balance:
+                        if account_id in accounts_initital_balance:
+                            initial_balance = accounts_initital_balance[account_id]
+                    if data['debit_credit']:
+                        vals_tmp['debit'] = value['debit']
+                        vals_tmp['credit'] = value['credit']
+                        if not account.company_id.currency_id.is_zero(vals_tmp['debit']) or not account.company_id.currency_id.is_zero(vals_tmp['credit']):
+                            flag_tmp = True
+                    if not account.company_id.currency_id.is_zero(value['balance']):
+                        flag_tmp = True
+                    if data['enable_filter']:
+                        vals_tmp['balance_cmp'] = value['comp_bal'] * report.sign
+                        if not account.company_id.currency_id.is_zero(vals_tmp['balance_cmp']):
+                            flag_tmp = True
+                    if flag_tmp:
+                        report_initital_balance_cumulative += initial_balance
+            else:
+                report_initital_balance_cumulative = parent_initial_balance
+
+            if report.level == 1:
+                left_parent_period_balance = parent_balance
+                left_parent_cumulative_balance = report_initital_balance_cumulative
             vals = {
                 'name': report.name,
                 'balance': parent_balance,
@@ -545,10 +584,16 @@ class AccountingReport(models.TransientModel):
                 'report_side': report.report_side,
                 'account_id': False,
                 'account_ids': False,
-                'initial_balance': parent_initial_balance,
-                'parent_initial_balance': parent_initial_balance,
+                'initial_balance': report_initital_balance_cumulative,
+                'parent_initial_balance': report_initital_balance_cumulative,
                 'parent_balance': parent_balance,
             }
+
+            if report.level == 2:
+                vals.update({
+                                'left_parent_period_balance': left_parent_period_balance,
+                                'left_parent_cumulative_balance': left_parent_cumulative_balance,
+                            })
             if report.report_side and report.report_side == 'right':
                 data['right'] = True
             # print ("\n\n\n\n===========right=====================",data.get('right'))
@@ -626,6 +671,7 @@ class AccountingReport(models.TransientModel):
                         if not account.company_id.currency_id.is_zero(vals['balance_cmp']):
                             flag = True
                     if flag:
+                        # report_initital_balance_cumulative += initial_balance
                         sub_lines.append(vals)
                 lines += sorted(sub_lines, key=lambda sub_line: sub_line['name'])
         return lines
@@ -978,34 +1024,59 @@ class AccountingReport(models.TransientModel):
                 
                 ### Sacando los Porcentajes ###
                 ### Periodo #####
-                percentage_period = 0.0
-                if initial_balance == parent_initial_balance:
-                    if initial_balance == 0.0:
+                left_parent_period_balance = each.get('left_parent_period_balance', 0.0)
+                if each['level'] == 2:
+                    # Si es nivel 2 el porcentaje lo calculamos sobre el left_parent_x_balance
+                    percentage_period = 0.0
+                    if line_balance == left_parent_period_balance:
+                        if line_balance == 0.0:
+                            percentage_period = 0.0
+                        else:
+                            percentage_period = 1.0
+                    elif line_balance == 0.0 and left_parent_period_balance == 0.0:
                         percentage_period = 0.0
                     else:
-                        percentage_period = 1.0
-                elif initial_balance == 0.0 and parent_initial_balance == 0.0:
-                    percentage_period = 0.0
-                else:
-                    percentage_period =  initial_balance / parent_initial_balance
-                ### Acumulado #####
-                percentage_acum = 0.0
-                if line_balance == parent_balance:
-                    percentage_acum = 1.0
-                elif line_balance == 0.0 and parent_balance == 0.0:
-                    percentage_acum = 0.0
-                else:
-                    percentage_acum =  line_balance / parent_balance
+                        percentage_period =  line_balance / left_parent_period_balance
 
+                else:
+                    percentage_period = 0.0
+                    if initial_balance == parent_initial_balance:
+                        if initial_balance == 0.0:
+                            percentage_period = 0.0
+                        else:
+                            percentage_period = 1.0
+                    elif initial_balance == 0.0 and parent_initial_balance == 0.0:
+                        percentage_period = 0.0
+                    else:
+                        percentage_period =  initial_balance / parent_initial_balance
+                ### Acumulado #####
+                left_parent_cumulative_balance = each.get('left_parent_cumulative_balance', 0.0)
+                if each['level'] == 2:
+                   # Si es nivel 2 el porcentaje lo calculamos sobre el left_parent_x_balance
+                    percentage_acum = 0.0
+                    if initial_balance == left_parent_cumulative_balance:
+                        percentage_acum = 1.0
+                    elif initial_balance == 0.0 and left_parent_cumulative_balance == 0.0:
+                        percentage_acum = 0.0
+                    else:
+                        percentage_acum =  initial_balance / left_parent_cumulative_balance
+                else:
+                    percentage_acum = 0.0
+                    if line_balance == parent_balance:
+                        percentage_acum = 1.0
+                    elif line_balance == 0.0 and parent_balance == 0.0:
+                        percentage_acum = 0.0
+                    else:
+                        percentage_acum =  line_balance / parent_balance
                 line_type = each['type']
                 if each['report_side'] != 'right':
                     #### Saltos de Columna ########
                     if line_type == 'report':
                         sheet.write(desc_i+str(i), name, format_header_border_bg_lft_yll_dyn)
                         sheet.write(acum_i+str(i), initial_balance, format_header_border_bg_right_yll)
-                        sheet.write(percent_02_i+str(i), percentage_period, format_header_border_bg_center_yll_percent)
+                        sheet.write(percent_01_i+str(i), percentage_period, format_header_border_bg_center_yll_percent)
                         sheet.write(periodo_i+str(i), line_balance, format_header_border_bg_right_yll)
-                        sheet.write(percent_01_i+str(i), percentage_acum, format_header_border_bg_center_yll_percent)
+                        sheet.write(percent_02_i+str(i), percentage_acum, format_header_border_bg_center_yll_percent)
 
                         # sheet.write(periodo_i+str(i), initial_balance, format_header_border_bg_right_yll)
                         # sheet.write(periodo_i+str(i), initial_balance, format_header_border_bg_right_yll)
@@ -1015,9 +1086,9 @@ class AccountingReport(models.TransientModel):
                     else:
                         sheet.write(desc_i+str(i), name, format_header_border_bg_left_dyn)
                         sheet.write(acum_i+str(i), initial_balance, format_header_border_bg_right)
-                        sheet.write(percent_02_i+str(i), percentage_period, format_header_border_bg_center_percent)
+                        sheet.write(percent_01_i+str(i), percentage_period, format_header_border_bg_center_percent)
                         sheet.write(periodo_i+str(i), line_balance, format_header_border_bg_right)
-                        sheet.write(percent_01_i+str(i), percentage_acum, format_header_border_bg_center_percent)
+                        sheet.write(percent_02_i+str(i), percentage_acum, format_header_border_bg_center_percent)
 
                         # sheet.write(periodo_i+str(i), initial_balance, format_header_border_bg_right)
                         # sheet.write(percent_01_i+str(i), percentage_period, format_header_border_bg_center_percent)
@@ -1033,9 +1104,9 @@ class AccountingReport(models.TransientModel):
                     if line_type == 'report':
                         sheet.write(desc_i+str(i), name, format_header_border_bg_lft_yll_dyn)
                         sheet.write(acum_i+str(i), initial_balance, format_header_border_bg_right_yll)
-                        sheet.write(percent_02_i+str(i), percentage_period, format_header_border_bg_center_yll_percent)
+                        sheet.write(percent_01_i+str(i), percentage_period, format_header_border_bg_center_yll_percent)
                         sheet.write(periodo_i+str(i), line_balance, format_header_border_bg_right_yll)
-                        sheet.write(percent_01_i+str(i), percentage_acum, format_header_border_bg_center_yll_percent)
+                        sheet.write(percent_02_i+str(i), percentage_acum, format_header_border_bg_center_yll_percent)
 
                         # sheet.write(periodo_i+str(i), initial_balance, format_header_border_bg_right_yll)
                         # sheet.write(percent_01_i+str(i), percentage_period, format_header_border_bg_center_yll_percent)
@@ -1045,9 +1116,9 @@ class AccountingReport(models.TransientModel):
                     else:
                         sheet.write(desc_i+str(i), name, format_header_border_bg_left_dyn)
                         sheet.write(acum_i+str(i), initial_balance, format_header_border_bg_right)
-                        sheet.write(percent_02_i+str(i), percentage_period, format_header_border_bg_center_percent)
+                        sheet.write(percent_01_i+str(i), percentage_period, format_header_border_bg_center_percent)
                         sheet.write(periodo_i+str(i), line_balance, format_header_border_bg_right)
-                        sheet.write(percent_01_i+str(i), percentage_acum, format_header_border_bg_center_percent)
+                        sheet.write(percent_02_i+str(i), percentage_acum, format_header_border_bg_center_percent)
 
                         # sheet.write(periodo_i+str(i), initial_balance, format_header_border_bg_right)
                         # sheet.write(percent_01_i+str(i), percentage_period, format_header_border_bg_center_percent)
