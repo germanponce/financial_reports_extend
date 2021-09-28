@@ -1427,7 +1427,7 @@ class GeneralLedgerXslxGrouped(models.AbstractModel):
                 self.write_array_header()
 
                 # Display initial balance line for account
-                self.write_initial_balance_special(account)
+                account_cumul_balance = self.write_initial_balance_special(account)
                 # Display account move lines
                 grouped_lines = []
                 for line in account.move_line_ids:
@@ -1491,7 +1491,7 @@ class GeneralLedgerXslxGrouped(models.AbstractModel):
                 self.write_array_header()
 
                 # Display initial balance line for account
-                self.write_initial_balance_special(account)
+                account_cumul_balance = self.write_initial_balance_special(account)
                 grouped_lines = []
                 for partner in account.partner_ids:
                     # Write partner title
@@ -1570,16 +1570,19 @@ class GeneralLedgerXslxGrouped(models.AbstractModel):
 
                 # Line break
                 # self.row_pos += 1
+            saldo_acumulado_final = 0.0
             if date_list_groupped_vals:
-                self.write_lines_grouped(date_list_groupped_vals)
+                saldo_acumulado_final = self.write_lines_grouped(date_list_groupped_vals, account_cumul_balance)
             # Display ending balance line for account
+            
             ending_balance_vals_summatory = [{
                                              10: sum_initial_balance,# initial_balance,
                                              11: sum_debit, # debit',
                                              12: sum_credit, # credit',
-                                             13: sum_cumul_balance, # cumul_balance',
+                                             13: saldo_acumulado_final, # sum_cumul_balance',
                                             }]
-
+            _logger.info("\n####### sum_cumul_balance >>>>>>>>>>>> %s " % sum_cumul_balance)
+            _logger.info("\n####### saldo_acumulado_final >>>>>>>>>>>> %s " % saldo_acumulado_final)
             if not report.filter_partner_ids:
                 self.write_ending_balance_special(account, ending_balance_vals_summatory)
 
@@ -1593,9 +1596,10 @@ class GeneralLedgerXslxGrouped(models.AbstractModel):
             my_object.currency_id = my_object.report_account_id.currency_id
         elif 'account' in my_object._name:
             label = _('Initial balance')
-        super(GeneralLedgerXslxGrouped, self).write_initial_balance_special(
+        res = super(GeneralLedgerXslxGrouped, self).write_initial_balance_special(
             my_object, label
         )
+        return res
 
     def write_ending_balance_special(self, my_object, list_summ):
         """Specific function to write ending balance for General Ledger"""
@@ -1612,13 +1616,20 @@ class GeneralLedgerXslxGrouped(models.AbstractModel):
 class AbstractReportXslx(models.AbstractModel):
     _inherit = 'report.account_financial_report.abstract_report_xlsx'
 
-    def write_lines_grouped(self, lines_dict):
+    def write_lines_grouped(self, lines_dict, parent_account_cumul_balance):
         date_list = lines_dict.keys()
         date_list = list(set(date_list))
         date_list.sort()
+        saldo_acumulado = float(parent_account_cumul_balance) or 0.0
+        debit_or_credit = 0.0
         for date in date_list:
             lines_read_dict = lines_dict[date]
             for line in lines_read_dict:
+                credit_val = line[11]
+                debit_val = line[12]
+                saldo_acumulado += credit_val
+                saldo_acumulado -= debit_val
+                #saldo_acumulado += float(value)
                 #vals = lines_dict.get(line)
                 vals = line
                 columns = vals.keys()
@@ -1626,25 +1637,37 @@ class AbstractReportXslx(models.AbstractModel):
                 # self.sheet.write_string(self.row_pos, 0, '')
                 # # Diario #
                 # self.sheet.write_string(self.row_pos, 2, journal)
-
                 for col_pos in columns:
                     value = vals[col_pos]
                     if value:
                         if col_pos in (0,1,2,3,4,5,6,7,8,9):
                             self.sheet.write_string(self.row_pos, col_pos, value)
                         else:
-                            cell_format = self.format_amount
-                            self.sheet.write_number(
-                                self.row_pos, col_pos, float(value), cell_format
-                            )
+                            if  col_pos == 13:
+                                ### Sacamos el Saldo Acumulado ####
+                                self.sheet.write_number(
+                                    self.row_pos, col_pos, saldo_acumulado, cell_format
+                                )
+                            else:
+                                cell_format = self.format_amount
+                                self.sheet.write_number(
+                                    self.row_pos, col_pos, float(value), cell_format
+                                )
                     else:
                         if col_pos in (11,12,13):
                             cell_format = self.format_amount
-                            self.sheet.write_number(
-                                self.row_pos, col_pos, float(0.0), cell_format
-                            )
+                            if  col_pos == 13:
+                                ### Sacamos el Saldo Acumulado ####
+                                self.sheet.write_number(
+                                    self.row_pos, col_pos, saldo_acumulado, cell_format
+                                )
+                            else:
+                                self.sheet.write_number(
+                                    self.row_pos, col_pos, float(0.0), cell_format
+                                )
 
                 self.row_pos += 1
+        return saldo_acumulado
 
     def write_line_special(self, line_object):
         # print ("######### write_line_special >>>>>>>>>>>>>>>> ")
@@ -1695,7 +1718,7 @@ class AbstractReportXslx(models.AbstractModel):
         # print ("### write_initial_balance_special >>>>>>>>> ")
         # print ("::: my_object >>>>>>>>> ", my_object)
         vals_read = my_object.read()[0]
-        # print ("::: label >>>>>>>>> ", label)
+        account_cumul_balance = 0.0
         """Write a specific initial balance line on current line
         using defined columns field_initial_balance name.
 
@@ -1732,6 +1755,14 @@ class AbstractReportXslx(models.AbstractModel):
 
         col_pos_label = self._get_col_pos_initial_balance_label()
         self.sheet.write(self.row_pos, col_pos_label, label, self.format_right)
+        _logger.info("\n####### Saldo Inicial >>>>>>>>>>> ")
+        if label == 'Saldo inicial':
+            for col_pos, column in self.columns.items():
+                if column.get('field_final_balance'):
+                    x_value = getattr(my_object, column['field_initial_balance'])
+                    account_cumul_balance = float(x_value)
+                    break
+
         for col_pos, column in self.columns.items():
             # print ("######### col_pos >>>>>>>>>>> ",col_pos)
             # print ("######### column >>>>>>>>>>> ",column)
@@ -1784,17 +1815,11 @@ class AbstractReportXslx(models.AbstractModel):
                             self.row_pos, col_pos,
                             float(value), format_amt
                         )
-            elif column.get('field_currency_balance'):
-                value = getattr(my_object, column['field_currency_balance'])
-                cell_type = column.get('type', 'string')
-                if cell_type == 'many2one':
-                    if my_object.currency_id:
-                        self.sheet.write_string(
-                            self.row_pos, col_pos,
-                            value.name or '',
-                            self.format_right
-                        )
+            # if column.get('field_final_balance'):
+            #     value = getattr(my_object, column['field_final_balance'])
+            #     print ("##### VALUE >>>>>>>>>>> ", value)
         self.row_pos += 1
+        return account_cumul_balance
 
     def write_ending_balance_special(self, my_object, name, label, list_summ):
 
@@ -1844,7 +1869,6 @@ class AbstractReportXslx(models.AbstractModel):
         for col_pos, column in self.columns.items():
             if column.get('field_final_balance'):
                 value = getattr(my_object, column['field_final_balance'])
-                
                 cell_type = column.get('type', 'string')
                 if cell_type == 'string':
                     self.sheet.write_string(self.row_pos, col_pos, value or '',
@@ -1871,6 +1895,14 @@ class AbstractReportXslx(models.AbstractModel):
                             self.row_pos, col_pos, sum_credit if sum_credit else 0.0,
                             self.format_header_amount
                         )
+                    elif col_pos == 13:
+                        #### Grabamos el Saldo Final Calculado ###### 
+                        _logger.info("\n::::: sum_cumul_balance : %s " % sum_cumul_balance)
+                        _logger.info("\n::::: saldo_acumulado_cuenta : %s " % float(value))
+                        self.sheet.write_number(
+                            self.row_pos, col_pos, sum_cumul_balance if sum_cumul_balance else float(value),
+                            self.format_header_amount
+                        ) 
                     # if col_pos == 13:
                     #     self.sheet.write_number(
                     #         self.row_pos, col_pos, sum_cumul_balance if sum_cumul_balance else 0.0,
